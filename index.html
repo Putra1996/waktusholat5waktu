@@ -1063,6 +1063,15 @@ function splitArabic(text){
 // RENDER SEKALI seluruh surat: semua ayat (kata-kata + latin + terjemahan)
 // ditampilkan langsung, tanpa loading per-ayat. Highlight berjalan di dalam
 // ayat yang sedang diputar, lalu auto-scroll ke ayat berikutnya.
+// Gulir HANYA kontainer karaoke (#karaokeAyah) ke posisi agar elemen terlihat,
+// tanpa ikut menggulir halaman/window (menghindari "mulai dari bawah" saat panjang).
+function centerInBox(box, el){
+  if (!el) return;
+  const boxRect = box.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  box.scrollTop += (elRect.top - boxRect.top) - (boxRect.height / 2) + (elRect.height / 2);
+}
+
 function renderKaraokeSurah(){
   const data = surahCache[activeSurah];
   if (!data) return;
@@ -1084,6 +1093,8 @@ function renderKaraokeSurah(){
     </div>`;
   });
   box.innerHTML = html;
+  // MULAI DARI ATAS: reset posisi gulir kontainer karaoke
+  box.scrollTop = 0;
   $('kAyahNum').textContent = `Surat ${data.namaLatin} — ${data.jumlahAyat} ayat`;
   // mulai dari ayat pertama
   karaokeIdx = 0;
@@ -1120,7 +1131,7 @@ function highlightKaraoke(v, n){
     el.classList.toggle('cur', wi === n);
   });
   const cur = box.querySelector(`.k-block[data-v="${v}"] .k-word[data-i="${n}"]`);
-  if (cur && cur.scrollIntoView) cur.scrollIntoView({ behavior:'smooth', block:'center' });
+  if (cur) centerInBox(box, cur);
 }
 
 function advanceKaraoke(){
@@ -1133,7 +1144,7 @@ function advanceKaraoke(){
     $('kAyahNum').textContent = `Surat ${data.namaLatin} — Ayat ${ayat.nomorAyat}`;
     // scroll ke blok ayat aktif (tanpa me-render ulang)
     const blk = $('karaokeAyah').querySelector(`.k-block[data-v="${karaokeIdx}"]`);
-    if (blk && blk.scrollIntoView) blk.scrollIntoView({ behavior:'smooth', block:'center' });
+    if (blk) centerInBox($('karaokeAyah'), blk);
     playKaraokeAudio(ayat);
   } else {
     stopKaraoke(); toast('Selesai tilawah surat ini 🎉');
@@ -1169,7 +1180,7 @@ $('kPrev').onclick = () => {
       karaokeWords = splitArabic(data.ayat[karaokeIdx].teksArab);
       $('kAyahNum').textContent = `Surat ${data.namaLatin} — Ayat ${data.ayat[karaokeIdx].nomorAyat}`;
       const blk = $('karaokeAyah').querySelector(`.k-block[data-v="${karaokeIdx}"]`);
-      if (blk && blk.scrollIntoView) blk.scrollIntoView({ behavior:'smooth', block:'center' });
+      if (blk) centerInBox($('karaokeAyah'), blk);
       playKaraokeAudio(data.ayat[karaokeIdx]);
     }
   }

@@ -1,5 +1,5 @@
 /* Sholat App — Service Worker: cache offline */
-const CACHE = 'sholat-app-v8';
+const CACHE = 'sholat-app-v9';
 const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'audio/adzan.mp3', 'audio/adzan-bilal.mp3'];
 
 self.addEventListener('install', e => {
