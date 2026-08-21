@@ -1093,20 +1093,28 @@ function renderKaraokeSurah(){
     </div>`;
   });
   box.innerHTML = html;
-  $('kAyahNum').textContent = `Surat ${data.namaLatin} — ${data.jumlahAyat} ayat`;
-  // mulai dari ayat pertama
+  $('kAyahNum').textContent = `Surat ${data.namaLatin} — Ayat ${data.ayat[0].nomorAyat}`;
   karaokeIdx = 0;
   karaokeWords = splitArabic(data.ayat[0].teksArab);
-  // MULAI DARI ATAS: tunggu layout selesai lalu reset scroll kontainer karaoke
-  // DAN scroll halaman ke paling atas (hindari "mulai dari bawah" pada surat panjang)
-  requestAnimationFrame(() => {
-    box.scrollTop = 0;
-    // pastikan kontainer karaoke terlihat dari atas
+
+  // MULAI DARI ATAS secara PASTI: reset scroll ganda setelah layout selesai.
+  // rAF ganda + set ulang menangani kasus konten sangat panjang (mis. 200+ ayat).
+  const resetTop = () => {
+    if (box) box.scrollTop = 0;
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+    if (window.scrollTo) window.scrollTo(0, 0);
     const kv = $('karaokeView');
-    if (kv) kv.scrollIntoView({ behavior:'instant', block:'start' });
-    // reset scroll window ke atas juga (karena daftar ayat sebelumnya panjang)
-    if (window.scrollTo) window.scrollTo({ top: 0, behavior:'instant' });
+    if (kv) kv.scrollTop = 0;
+  };
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      resetTop();
+      // reset ulang setelah scroll asinkron apa pun selesai
+      setTimeout(resetTop, 50);
+    });
   });
+
   playKaraokeAudio(data.ayat[0]);
 }
 
