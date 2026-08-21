@@ -1063,13 +1063,13 @@ function splitArabic(text){
 // RENDER SEKALI seluruh surat: semua ayat (kata-kata + latin + terjemahan)
 // ditampilkan langsung, tanpa loading per-ayat. Highlight berjalan di dalam
 // ayat yang sedang diputar, lalu auto-scroll ke ayat berikutnya.
-// Gulir HANYA kontainer karaoke (#karaokeAyah) ke posisi agar elemen terlihat,
-// tanpa ikut menggulir halaman/window (menghindari "mulai dari bawah" saat panjang).
+// Gulir HANYA kontainer karaoke (#karaokeAyah) agar elemen terlihat (di tengah),
+// tanpa ikut menggulir halaman/window.
 function centerInBox(box, el){
-  if (!el) return;
-  const boxRect = box.getBoundingClientRect();
-  const elRect = el.getBoundingClientRect();
-  box.scrollTop += (elRect.top - boxRect.top) - (boxRect.height / 2) + (elRect.height / 2);
+  if (!el || !box) return;
+  // posisi konten elemen relatif terhadap kontainer (sudah memperhitungkan scroll saat ini)
+  const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+  box.scrollTop = top - (box.clientHeight / 2) + (el.getBoundingClientRect().height / 2);
 }
 
 function renderKaraokeSurah(){
@@ -1093,12 +1093,20 @@ function renderKaraokeSurah(){
     </div>`;
   });
   box.innerHTML = html;
-  // MULAI DARI ATAS: reset posisi gulir kontainer karaoke
-  box.scrollTop = 0;
   $('kAyahNum').textContent = `Surat ${data.namaLatin} — ${data.jumlahAyat} ayat`;
   // mulai dari ayat pertama
   karaokeIdx = 0;
   karaokeWords = splitArabic(data.ayat[0].teksArab);
+  // MULAI DARI ATAS: tunggu layout selesai lalu reset scroll kontainer karaoke
+  // DAN scroll halaman ke paling atas (hindari "mulai dari bawah" pada surat panjang)
+  requestAnimationFrame(() => {
+    box.scrollTop = 0;
+    // pastikan kontainer karaoke terlihat dari atas
+    const kv = $('karaokeView');
+    if (kv) kv.scrollIntoView({ behavior:'instant', block:'start' });
+    // reset scroll window ke atas juga (karena daftar ayat sebelumnya panjang)
+    if (window.scrollTo) window.scrollTo({ top: 0, behavior:'instant' });
+  });
   playKaraokeAudio(data.ayat[0]);
 }
 
