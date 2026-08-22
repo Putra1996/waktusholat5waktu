@@ -1063,25 +1063,32 @@ function splitArabic(text){
 // RENDER SEKALI seluruh surat: semua ayat (kata-kata + latin + terjemahan)
 // ditampilkan langsung, tanpa loading per-ayat. Highlight berjalan di dalam
 // ayat yang sedang diputar, lalu auto-scroll ke ayat berikutnya.
-// Gulir HANYA kontainer karaoke (#karaokeAyah) agar elemen terlihat (di tengah),
-// tanpa ikut menggulir halaman/window.
+// Gulir kontainer karaoke HANYA jika elemen berada DI LUAR area terlihat,
+// agar di awal (ayat 1, kata 1) tampilan tetap di atas dan tidak loncat ke bawah.
 function centerInBox(box, el){
   if (!el || !box) return;
-  // posisi konten elemen relatif terhadap kontainer (sudah memperhitungkan scroll saat ini)
-  const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
-  box.scrollTop = top - (box.clientHeight / 2) + (el.getBoundingClientRect().height / 2);
+  const bTop = box.getBoundingClientRect().top;
+  const bBottom = bTop + box.clientHeight;
+  const eTop = el.getBoundingClientRect().top;
+  const eBottom = eTop + el.getBoundingClientRect().height;
+  // jika sudah terlihat penuh -> jangan gerakkan scroll
+  if (eTop >= bTop && eBottom <= bBottom) return;
+  box.scrollTop += (eTop - bTop) - (box.clientHeight / 2) + (el.getBoundingClientRect().height / 2);
 }
 
 function renderKaraokeSurah(){
   const data = surahCache[activeSurah];
   if (!data) return;
   const box = $('karaokeAyah');
+  // KOSONGKAN dulu + paksa reflow agar browser "menyadari" konten baru
+  box.innerHTML = '';
+  box.scrollTop = 0;
+  // hentikan audio lama & reset semua state
+  if (karaokeAudio) { karaokeAudio.pause(); karaokeAudio = null; }
+
   let html = '';
   data.ayat.forEach((a, idx) => {
     const words = splitArabic(a.teksArab);
-    // Membaca dari kanan ke kiri (RTL) seperti mushaf: balik urutan kata
-    // agar kata pertama (indeks 0) berada paling kanan. Highlight memakai
-    // indeks asli -> menyala dari kanan ke kiri.
     let khtml = '';
     for (let i = words.length - 1; i >= 0; i--) {
       khtml += `<span class="k-word" data-v="${idx}" data-i="${i}">${words[i]}</span>`;
@@ -1093,45 +1100,52 @@ function renderKaraokeSurah(){
     </div>`;
   });
   box.innerHTML = html;
+
+  // MULAI DARI AYAT 1 (PASTI): label + indeks + kata ayat pertama
   $('kAyahNum').textContent = `Surat ${data.namaLatin} — Ayat ${data.ayat[0].nomorAyat}`;
   karaokeIdx = 0;
   karaokeWords = splitArabic(data.ayat[0].teksArab);
 
-  // MULAI DARI ATAS secara PASTI: reset scroll ganda setelah layout selesai.
-  // rAF ganda + set ulang menangani kasus konten sangat panjang (mis. 200+ ayat).
-  const resetTop = () => {
-    if (box) box.scrollTop = 0;
+  // Gulir ke ATAS secara berlapis (layout selesai -> beberapa frame -> telat 100ms),
+  // memaksa reflow (offsetHeight) agar benar-benar scrollTop=0 walau konten 200+ ayat.
+  const forceTop = () => {
+    if (box) { box.scrollTop = 0; box.scrollTop = 0; void box.offsetHeight; }
     if (document.documentElement) document.documentElement.scrollTop = 0;
     if (document.body) document.body.scrollTop = 0;
     if (window.scrollTo) window.scrollTo(0, 0);
-    const kv = $('karaokeView');
-    if (kv) kv.scrollTop = 0;
+    const kv = $('karaokeView'); if (kv) kv.scrollTop = 0;
   };
+  forceTop();
   requestAnimationFrame(() => {
+    forceTop();
     requestAnimationFrame(() => {
-      resetTop();
-      // reset ulang setelah scroll asinkron apa pun selesai
-      setTimeout(resetTop, 50);
+      forceTop();
+      setTimeout(forceTop, 100);
     });
   });
 
-  playKaraokeAudio(data.ayat[0]);
+  // Mulai audio ayat 1 SETELAH scroll dipastikan di atas (delay kecil)
+  setTimeout(() => { if (karaokeOn) playKaraokeAudio(data.ayat[0]); }, 120);
 }
 
 function playKaraokeAudio(ayat){
   if (karaokeAudio) { karaokeAudio.pause(); karaokeAudio = null; }
   const url = karaokeAyatAudio(ayat);
   setKPlayLabel(true);
-  if (!url) { setTimeout(()=>advanceKaraoke(), 1200); return; }
+  // JANGAN otomatis lanjut bila tidak ada audio: tetap tampil di ayat ini.
+  if (!url) { return; }
   const a = new Audio(url);
   karaokeAudio = a;
   a.play().catch(()=>{});
+  let advanced = false;
+  const advanceOnce = () => { if (!advanced) { advanced = true; advanceKaraoke(); } };
   a.ontimeupdate = () => {
-    if (!a.duration || !karaokeWords.length) return;
+    if (!a.duration || !karaokeWords.length || advanced) return;
     const n = Math.floor((a.currentTime / a.duration) * karaokeWords.length);
     highlightKaraoke(karaokeIdx, n);
   };
-  a.onended = () => advanceKaraoke();
+  a.onended = advanceOnce;
+  a.onerror = () => { /* biarkan tampil tanpa audio, jangan lompat */ };
 }
 
 function highlightKaraoke(v, n){
