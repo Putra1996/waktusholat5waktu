@@ -1,0 +1,3 @@
+# Sholat App — PWA jadwal sholat
+User-agent: *
+Allow: /

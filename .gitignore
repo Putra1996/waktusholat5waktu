@@ -1,0 +1,10 @@
+# Dependensi & artefak lokal
+node_modules/
+.vercel/
+.DS_Store
+*.log
+
+# Kunci rahasia (jangan pernah di-commit)
+serviceAccountKey.json
+.env
+.env.local

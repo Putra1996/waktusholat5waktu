@@ -3,16 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0b1020">
-<meta name="description" content="Jadwal sholat realtime akurat berbasis GPS presisi tinggi, dengan pengingat notifikasi. Bisa dipasang di Android dan PC.">
+<meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef3fb" media="(prefers-color-scheme: light)">
+<meta name="color-scheme" content="dark light">
+<meta name="description" content="Jadwal sholat realtime akurat berbasis GPS presisi tinggi, dengan pengingat notifikasi, adzan tepat waktu, arah kiblat, kalender Hijriah, dan mengaji Al-Quran. Bisa dipasang di Android dan PC.">
+<meta name="robots" content="index,follow">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Sholat App — Jadwal & Pengingat Sholat</title>
+
+<!-- Open Graph / Twitter. og:url, og:image, dan canonical diisi otomatis
+     dari origin saat runtime (lihat app.js) agar tidak salah domain. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Sholat App">
+<meta property="og:title" content="Sholat App — Jadwal &amp; Pengingat Sholat">
+<meta property="og:description" content="Jadwal sholat realtime berbasis GPS, pengingat &amp; adzan tepat waktu, arah kiblat, kalender Hijriah, dan mengaji Al-Quran. Gratis dan bisa dipasang sebagai aplikasi.">
+<meta property="og:url" content="">
+<meta property="og:image" content="icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Sholat App — Jadwal &amp; Pengingat Sholat">
+<meta name="twitter:description" content="Jadwal sholat realtime berbasis GPS, pengingat &amp; adzan, kiblat, kalender Hijriah, dan mengaji Al-Quran.">
+<meta name="twitter:image" content="icons/icon-512.png">
+
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sholat">
+
+<!-- Handshake awal ke API yang dipakai (mengurangi latensi permintaan pertama) -->
+<link rel="preconnect" href="https://api.aladhan.com" crossorigin>
+<link rel="preconnect" href="https://equran.id" crossorigin>
+<link rel="dns-prefetch" href="https://api.bigdatacloud.net">
+<link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
+<link rel="dns-prefetch" href="https://cdn.equran.id">
 <style>
   :root{
+    color-scheme: dark;          /* kontrol native (input time/range, scrollbar) ikut gelap */
     --bg:#0b1020;
     --bg2:#101a33;
     --card:rgba(255,255,255,.045);
@@ -28,6 +56,7 @@
     --g1:#34d399; --g2:#22d3ee; --g3:#818cf8;
   }
   body.light{
+    color-scheme: light;
     --bg:#eef3fb;
     --bg2:#e3ebf7;
     --card:rgba(255,255,255,.7);
@@ -144,7 +173,11 @@
     background:radial-gradient(circle at 50% 40%, var(--card-solid), var(--bg2));
     border:2px solid var(--border);box-shadow:var(--shadow);overflow:hidden}
   .compass::before{content:"";position:absolute;inset:12px;border-radius:50%;border:1px dashed var(--border)}
-  .c-tick{position:absolute;top:6px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;color:var(--muted)}
+  /* AUDIT: sebelumnya --r (0/90/180/270deg) tidak pernah dipakai sehingga
+     huruf E, S, W semuanya menumpuk di posisi atas (Utara). */
+  .c-tick{position:absolute;inset:0;transform:rotate(var(--r,0deg));pointer-events:none}
+  .c-tick span{position:absolute;top:6px;left:0;right:0;text-align:center;font-size:11px;font-weight:700;color:var(--muted);
+    transform:rotate(calc(-1 * var(--r,0deg)))}
   .needle{position:absolute;top:50%;left:50%;width:0;height:0;transition:transform .3s ease}
   .needle .n-tip{position:absolute;left:-6px;top:-74px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:74px solid var(--accent)}
   .needle .n-tail{position:absolute;left:-4px;top:6px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:60px solid rgba(255,255,255,.25)}
@@ -237,30 +270,56 @@
   .doa-meaning{font-size:12px;color:var(--muted);line-height:1.6}
   .loader{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px}
   @keyframes spin{to{transform:rotate(360deg)}}
+  /* =====================================================================
+     PERBAIKAN AUDIT — aksesibilitas, tampilan, kompatibilitas
+     ===================================================================== */
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:10px}
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+  }
+  /* Safari < 18 memerlukan prefiks -webkit- */
+  .iconbtn,.locbar input,.clock,.card,.sec,.tab,.karaoke-bar{-webkit-backdrop-filter:blur(6px)}
+  /* Kontrol form yang sebelumnya tidak bergaya (jam pengingat, URL adzan) */
+  input[type=time],input[type=url]{background:var(--card-solid);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 10px;font-size:13px;outline:none;width:100%;max-width:100%}
+  input[type=range]{accent-color:var(--accent);width:130px}
+  /* Karaoke: urutan kata Arab dibiarkan alami, RTL ditangani CSS (dulu diakali di JS) */
+  .k-verse{direction:rtl}
+  .tz-warn{color:var(--danger);font-weight:600}
+  #dataInfo{font-size:10.5px;color:var(--muted)}
+  #dataInfo.warn{color:var(--danger)}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  .skip-link{position:absolute;left:8px;top:-48px;background:var(--card-solid);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:10px;z-index:80;transition:top .2s;text-decoration:none;font-size:13px}
+  .skip-link:focus{top:8px}
 </style>
 </head>
 <body>
+<a class="skip-link" href="#jadwal">Lewati ke jadwal sholat</a>
+<noscript>
+  <div style="max-width:560px;margin:16px auto;padding:14px;border:1px solid #f87171;border-radius:14px;color:#f87171;font-size:13px">
+    Aplikasi ini memerlukan JavaScript untuk menghitung jadwal sholat & pengingat. Aktifkan JavaScript lalu muat ulang halaman.
+  </div>
+</noscript>
 <div class="wrap">
   <div class="topbar">
     <div class="brand">
-      <div class="logo">🕌</div>
+      <div class="logo" aria-hidden="true">🕌</div>
       <div>
         <h1>Sholat App</h1>
         <small>Jadwal &amp; Pengingat Realtime</small>
       </div>
     </div>
-    <button class="iconbtn" id="qiblaBtn" title="Arah kiblat">🧭</button>
-    <button class="iconbtn" id="calBtn" title="Kalender bulanan">📅</button>
-    <button class="iconbtn" id="helpBtn" title="Bantuan & cara pasang">❓</button>
-    <button class="iconbtn" id="settingsBtn" title="Pengaturan">⚙️</button>
-    <button class="iconbtn" id="themeBtn" title="Mode gelap/terang">🌙</button>
+    <button class="iconbtn" id="qiblaBtn" title="Arah kiblat" aria-label="Arah kiblat">🧭</button>
+    <button class="iconbtn" id="calBtn" title="Kalender bulanan" aria-label="Kalender bulanan">📅</button>
+    <button class="iconbtn" id="helpBtn" title="Bantuan & cara pasang" aria-label="Bantuan dan cara pasang">❓</button>
+    <button class="iconbtn" id="settingsBtn" title="Pengaturan" aria-label="Pengaturan">⚙️</button>
+    <button class="iconbtn" id="themeBtn" title="Mode gelap/terang" aria-label="Ganti mode gelap atau terang">🌙</button>
   </div>
 
-  <div class="tabrow">
-    <button class="tab" id="tabLoc">📌 Lokasi</button>
-    <button class="tab" id="tabQuran">📖 Al-Quran</button>
-    <button class="tab" id="tabQadar">🌙 Qadar</button>
-    <button class="tab" id="tabYT">📺 Adzan</button>
+  <div class="tabrow" role="group" aria-label="Menu bagian aplikasi">
+    <button class="tab" id="tabLoc" aria-pressed="false">📌 Lokasi</button>
+    <button class="tab" id="tabQuran" aria-pressed="false">📖 Al-Quran</button>
+    <button class="tab" id="tabQadar" aria-pressed="false">🌙 Qadar</button>
+    <button class="tab" id="tabYT" aria-pressed="false">📺 Adzan</button>
   </div>
 
   <div class="locbar">
@@ -315,9 +374,15 @@
     <h3 style="margin-top:18px"><span class="ic">🔊</span> Suara Pengingat</h3>
     <div class="row">
       <label>Bunyi saat pengingat
-        <span class="desc">Adzan / bip diputar saat tiba waktunya</span>
+        <span class="desc">Adzan / bip diputar saat pengingat berbunyi</span>
       </label>
       <label class="switch"><input type="checkbox" id="soundToggle"><span class="slider"></span></label>
+    </div>
+    <div class="row">
+      <label>Adzan tepat waktu
+        <span class="desc">Putar adzan + notifikasi tepat saat masuk waktu sholat</span>
+      </label>
+      <label class="switch"><input type="checkbox" id="adzanAtTimeToggle"><span class="slider"></span></label>
     </div>
     <div class="row">
       <label>Jenis suara</label>
@@ -348,13 +413,20 @@
 
     <h3 style="margin-top:18px"><span class="ic">🧮</span> Metode Perhitungan</h3>
     <div class="row">
-      <label>Metode<label class="desc">Sudut fajar / isya sesuai mazhab negara</label></label>
-      <select id="methodSel"></select>
+      <label>Metode<span class="desc">Sudut fajar / isya sesuai standar negara</span></label>
+      <select id="methodSel" aria-label="Metode perhitungan jadwal sholat"></select>
     </div>
+    <div class="row">
+      <label>Mazhab Ashar<span class="desc">Hanafi membuat waktu Ashar lebih sore</span></label>
+      <select id="schoolSel" aria-label="Mazhab perhitungan waktu Ashar"></select>
+    </div>
+    <div style="font-size:10.5px;color:var(--muted);margin-top:6px">Perhitungan oleh Al-Adhan (Aladhan API) ·
+      <a href="https://aladhan.com/calculation-methods" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">detail metode</a>.
+      Jadwal Kemenag resmi memakai ihtiyati ±2 menit; sesuaikan lewat pengingat di atas bila perlu.</div>
 
     <h3 style="margin-top:18px"><span class="ic">🌓</span> Tampilan</h3>
     <div class="row">
-      <label>Tema<label class="desc">Gelap, terang, atau otomatis</label></label>
+      <label>Tema<span class="desc">Gelap, terang, atau otomatis</span></label>
       <select id="themeSel">
         <option value="auto">Otomatis</option>
         <option value="dark">Gelap</option>
@@ -391,7 +463,7 @@
   <div class="sec" id="qiblaPanel" style="display:none">
     <h3><span class="ic">🧭</span> Arah Kiblat</h3>
     <div class="qibla-box">
-      <div class="compass" id="compass">
+      <div class="compass" id="compass" aria-hidden="true">
         <div class="c-tick" style="--r:0deg"><span>N</span></div>
         <div class="c-tick" style="--r:90deg"><span>E</span></div>
         <div class="c-tick" style="--r:180deg"><span>S</span></div>
@@ -399,8 +471,8 @@
         <div class="needle" id="needle"><div class="n-tip"></div><div class="n-tail"></div></div>
         <div class="kaaba" id="kaabaMark">🕋</div>
       </div>
-      <div class="qibla-info" id="qiblaInfo">Menghitung…</div>
-      <div class="qibla-hint">Arahkan perangkat hingga jarum menunjuk 🕋. Butuh sensor kompas pada perangkat.</div>
+      <div class="qibla-info" id="qiblaInfo" aria-live="polite">Menghitung…</div>
+      <div class="qibla-hint" id="qiblaHint">Arahkan perangkat hingga jarum menunjuk 🕋. Butuh sensor kompas pada perangkat.</div>
     </div>
   </div>
 
@@ -424,7 +496,7 @@
     <h3><span class="ic">📌</span> Multi-Lokasi</h3>
     <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Simpan beberapa kota untuk jadwal sholat & kalender, lalu beralih cepat.</p>
     <div class="row">
-      <label>Simpan lokasi aktif<label class="desc">Sesuaikan lokasi (GPS/cari) lalu simpan</label></label>
+      <label>Simpan lokasi aktif<span class="desc">Sesuaikan lokasi (GPS/cari) lalu simpan</span></label>
       <button class="btn" id="saveLocBtn" style="padding:9px 14px">💾 Simpan</button>
     </div>
     <div id="savedLocList"></div>
@@ -442,7 +514,7 @@
 
     <!-- Pilih qari -->
     <div class="row">
-      <label>Qari<label class="desc">Suara tilawah & terjemahan</label></label>
+      <label>Qari<span class="desc">Suara tilawah & terjemahan</span></label>
       <select id="quranReciterSel">
         <option value="01">Abdullah Al-Juhany</option>
         <option value="02">Abdul Muhsin Al-Qasim</option>
@@ -504,1271 +576,20 @@
     <div style="font-size:10.5px;color:var(--muted);margin-top:8px">Sumber: Ruli Maroya (YouTube). Butuh internet. Untuk pengingat otomatis saat sholat tiba, aplikasi memakai suara pada ⚙️ Jenis suara.</div>
   </div>
 
-  <div class="footer">Jadwal realtime via Al-Adhan · GPS presisi tinggi · PWA tersimpan offline</div>
+  <div class="footer">
+    <div>Jadwal realtime via Al-Adhan · Al-Quran via EQuran.id · GPS presisi tinggi · PWA tersimpan offline</div>
+    <div id="dataInfo">Memuat jadwal…</div>
+  </div>
 </div>
 
-<div id="toast"></div>
-<div id="installBanner">
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="installBanner" role="region" aria-label="Pasang aplikasi">
   <div class="ib-txt"><b>Pasang di perangkat 📲</b><br>Instal sebagai aplikasi agar bisa dibuka seperti aplikasi biasa.</div>
   <button class="btn" id="installBtn" style="padding:9px 14px">Pasang</button>
 </div>
 
-<script>
-/* =====================================================================
-   SHOLAT APP — PWA realtime
-   - Jadwal realtime via koordinat (presisi GPS tinggi)
-   - Notifikasi pengingat yang bisa diatur (menit sebelum sholat)
-   - Mode gelap / terang / otomatis
-   ===================================================================== */
-
-const $ = id => document.getElementById(id);
-
-/* ---------- State ---------- */
-const state = {
-  coords: null,        // {lat,lng}
-  method: 20,          // default KEMENAG
-  locName: null,
-  accuracy: null,
-  jadwal: {},          // nama -> waktu "HH:MM"
-  todayKey: null,      // YYYY-MM-DD
-  notifyOn: true,
-  offsets: { Imsak:10, Subuh:10, Dzuhur:10, Ashar:10, Maghrib:10, Isya:10 },
-  notifSent: {},       // key YYYYMMDD_Subuh
-  theme: 'auto',
-  soundOn: true,       // bunyi adzan/bip saat pengingat
-  soundType: 'adzan',  // 'adzan' (bawaan) | 'adzanBilal' (adzan Bilal) | 'beep' | 'custom' (URL sendiri)
-  volume: 0.8,
-  adzanUrl: '',        // URL MP3 adzan tarannum sendiri (opsional)
-  savedLocations: [],  // multi-kota: [{name, lat, lng}]
-  quranReciter: '05',  // qari mengaji (index equran.id): 01..06
-  dailyReminders: [],  // pengingat harian: [{time:'HH:MM'}]
-  remSent: {},         // pengingat harian yang sudah terkirim (per tanggal)
-};
-
-const PRAYERS = [
-  { key:'Subuh', em:'🌅' },
-  { key:'Dzuhur', em:'☀️' },
-  { key:'Ashar', em:'🌤️' },
-  { key:'Maghrib', em:'🌇' },
-  { key:'Isya', em:'🌙' },
-];
-
-const METHODS = {
-  20:'KEMENAG (Indonesia)',
-  1:'Universitas Islamabad',
-  2:'IAIN (Indonesia)',
-  3:'Umm Al-Qura',
-  4:'Dewan Fatwa Mesir',
-  5:'Mufti Qatar',
-  8:'Gulf (Dubai)',
-  9:'Singapura / MUIS',
-  10:'Umm al-Qura (Gap)',
-  11:'Turki / Diyanet',
-  12:'Teheran',
-  13:'Jafari / Iran',
-  14:'Kuzestan',
-  16:'Singapura / MSG',
-  0:'Khyber (Shia)',
-};
-
-/* =====================================================================
-   PERSISTENSI
-   ===================================================================== */
-const save = () => {
-  localStorage.setItem('sholatApp', JSON.stringify({
-    coords: state.coords, method: state.method, theme: state.theme,
-    notifyOn: state.notifyOn, offsets: state.offsets,
-    soundOn: state.soundOn, soundType: state.soundType, volume: state.volume,
-    adzanUrl: state.adzanUrl,
-    savedLocations: state.savedLocations, quranReciter: state.quranReciter,
-    dailyReminders: state.dailyReminders, remSent: state.remSent,
-  }));
-};
-const load = () => {
-  try {
-    const d = JSON.parse(localStorage.getItem('sholatApp'));
-    if (d) {
-      if (d.coords) state.coords = d.coords;
-      if (d.method) state.method = d.method;
-      if (d.theme) { state.theme = d.theme; $('themeSel').value = d.theme; }
-      if (typeof d.notifyOn === 'boolean') state.notifyOn = d.notifyOn;
-      if (d.offsets) state.offsets = { ...state.offsets, ...d.offsets };
-      if (typeof d.soundOn === 'boolean') state.soundOn = d.soundOn;
-      if (d.soundType) state.soundType = d.soundType;
-      if (typeof d.volume === 'number') state.volume = d.volume;
-      if (typeof d.adzanUrl === 'string') state.adzanUrl = d.adzanUrl;
-      if (Array.isArray(d.savedLocations)) state.savedLocations = d.savedLocations;
-      if (d.quranReciter) state.quranReciter = d.quranReciter;
-      if (Array.isArray(d.dailyReminders)) state.dailyReminders = d.dailyReminders;
-      if (d.remSent) state.remSent = d.remSent;
-    }
-  } catch(e){}
-  $('notifToggle').checked = state.notifyOn;
-  $('soundToggle').checked = state.soundOn;
-  $('soundTypeSel').value = state.soundType;
-  $('volumeRange').value = state.volume;
-  $('adzanUrlInput').value = state.adzanUrl || '';
-  $('quranReciterSel').value = state.quranReciter;
-  renderSavedLocations();
-  renderDailyReminders();
-};
-
-/* =====================================================================
-   TEMA
-   ===================================================================== */
-function applyTheme(){
-  const t = state.theme === 'auto'
-    ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
-    : state.theme;
-  document.body.classList.toggle('light', t === 'light');
-  const meta = document.querySelector('meta[name=theme-color]');
-  if (meta) meta.setAttribute('content', t === 'light' ? '#eef3fb' : '#0b1020');
-  $('themeBtn').textContent = t === 'light' ? '☀️' : '🌙';
-}
-$('themeBtn').onclick = () => {
-  const order = ['auto','dark','light'];
-  const idx = order.indexOf(state.theme);
-  state.theme = order[(idx+1)%order.length];
-  $('themeSel').value = state.theme; applyTheme(); save();
-};
-$('themeSel').onchange = e => { state.theme = e.target.value; applyTheme(); save(); };
-window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyTheme);
-
-/* =====================================================================
-   METODE
-   ===================================================================== */
-(function fillMethods(){
-  const s = $('methodSel');
-  for (const [k,v] of Object.entries(METHODS)) {
-    const o = document.createElement('option'); o.value=k; o.textContent=v; s.appendChild(o);
-  }
-  s.value = String(state.method);
-})();
-$('methodSel').onchange = e => { state.method = Number(e.target.value); save(); resyncPush(); getJadwal(); };
-
-/* =====================================================================
-   PENGATURAN OFFSET NOTIFIKASI
-   ===================================================================== */
-function renderOffsets(){
-  const c = $('offsetList'); c.innerHTML='';
-  [...PRAYERS, {key:'Imsak'}].forEach(p => {
-    const div = document.createElement('div'); div.className='off';
-    div.innerHTML = `<span>${p.em||''} ${p.key}</span>
-      <input type="number" min="0" max="120" step="5" data-key="${p.key}">`;
-    div.querySelector('input').value = state.offsets[p.key] ?? 10;
-    c.appendChild(div);
-  });
-  c.querySelectorAll('input').forEach(inp => {
-    inp.onchange = () => {
-      let v = parseInt(inp.value||'10',10); if (isNaN(v)||v<0) v=10; if(v>120) v=120; inp.value=v;
-      state.offsets[inp.dataset.key] = v; save();
-      resyncPush();
-      toast(`Pengingat ${inp.dataset.key}: ${v} menit sebelum`);
-    };
-  });
-}
-renderOffsets();
-
-/* =====================================================================
-   SETTINGS PANEL TOGGLE
-   ===================================================================== */
-$('settingsBtn').onclick = () => {
-  const p = $('settingsPanel');
-  p.style.display = p.style.display === 'none' ? 'block' : 'none';
-};
-$('helpBtn').onclick = () => {
-  const h = $('helpPanel');
-  h.style.display = h.style.display === 'none' ? 'block' : 'none';
-  // isi status FCM
-  const cfg = (typeof window.FCM_CONFIG !== 'undefined') ? window.FCM_CONFIG : null;
-  const st = $('fcmStatus');
-  if (cfg && cfg.apiKey && cfg.serverUrl) {
-    st.textContent = '✅ Push FCM aktif — notifikasi tetap masuk walau aplikasi tertutup.';
-    st.classList.remove('off');
-  } else if (cfg && cfg.apiKey) {
-    st.textContent = '⚠️ FCM terisi tapi belum ada server. Push belum dikirim otomatis.';
-    st.classList.remove('off');
-  } else {
-    st.textContent = 'Push FCM belum dikonfigurasi. Isi fcm-config.js untuk aktif.';
-    st.classList.add('off');
-  }
-};
-
-/* =====================================================================
-   PANEL QIBLA & KALENDER (toggle)
-   ===================================================================== */
-$('qiblaBtn').onclick = () => {
-  const p = $('qiblaPanel');
-  p.style.display = p.style.display === 'none' ? 'block' : 'none';
-  if (p.style.display === 'block') initQibla();
-};
-$('calBtn').onclick = () => {
-  const p = $('calendarPanel');
-  p.style.display = p.style.display === 'none' ? 'block' : 'none';
-  if (p.style.display === 'block') loadCalendar();
-};
-
-/* =====================================================================
-   ARAH KIBLAT — kompas
-   ===================================================================== */
-const KAABA = { lat: 21.4225, lng: 39.8262 };
-function bearingToKaaba(lat, lng){
-  const φ1 = lat*Math.PI/180, φ2 = KAABA.lat*Math.PI/180;
-  const Δλ = (KAABA.lng - lng)*Math.PI/180;
-  const y = Math.sin(Δλ)*Math.cos(φ2);
-  const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
-  return (Math.atan2(y,x)*180/Math.PI + 360) % 360;
-}
-function distanceKm(lat, lng){
-  const R=6371, φ1=lat*Math.PI/180, φ2=KAABA.lat*Math.PI/180;
-  const Δφ=(KAABA.lat-lat)*Math.PI/180, Δλ=(KAABA.lng-lng)*Math.PI/180;
-  const a=Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-let qiblaBearing = 0, compassHeading = null;
-function updateNeedle(){
-  if (compassHeading == null) return;
-  // rot = arah kiblat dari utara - arah hadap perangkat (utara).
-  // Saat device menghadap utara (heading 0), jarum menunjuk ke bearing kiblat.
-  const rot = qiblaBearing - compassHeading;
-  $('needle').style.transform = `translate(-50%,-50%) rotate(${rot}deg)`;
-}
-function initQibla(){
-  if (!state.coords) { $('qiblaInfo').textContent = 'Aktifkan lokasi dulu (📍)'; return; }
-  qiblaBearing = bearingToKaaba(state.coords.lat, state.coords.lng);
-  const d = distanceKm(state.coords.lat, state.coords.lng);
-  $('qiblaInfo').innerHTML = `Kiblat: ${qiblaBearing.toFixed(1)}° dari Utara<small>Jarak ke Ka'bah ±${d.toFixed(0)} km</small>`;
-
-  if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    DeviceOrientationEvent.requestPermission().then(p => {
-      if (p === 'granted') attachOrientation();
-    }).catch(()=>{});
-  } else if (window.DeviceOrientationEvent) {
-    attachOrientation();
-  } else {
-    $('qibla-hint') && ($('qibla-hint').textContent = 'Perangkat tidak mendukung sensor kompas. Arah Utara = 0°, miringkan untuk mengikuti kiblat.');
-    // fallback: asumsi arah utara (device menghadap utara)
-    compassHeading = 0; updateNeedle();
-  }
-}
-function attachOrientation(){
-  const handle = e => {
-    let heading = e.webkitCompassHeading; // iOS
-    if (heading == null) {
-      const alpha = e.alpha; // Android: alpha utara saat 0
-      heading = alpha != null ? 360 - alpha : null;
-    }
-    if (heading != null) { compassHeading = heading; updateNeedle(); }
-  };
-  window.addEventListener('deviceorientationabsolute', handle, true);
-  window.addEventListener('deviceorientation', handle, true);
-}
-
-/* =====================================================================
-   KALENDER BULANAN
-   ===================================================================== */
-let calOffset = 0;   // 0 = bulan ini
-const DOW = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
-// Nama bulan & hari Hijriah dalam Arab (fallback bila API tak menyediakan)
-const AR_MONTHS = ['','Muḥarram','Ṣafar','Rabīʿ al-awwal','Rabīʿ al-ākhir','Jumādā al-ūlā','Jumādā al-ākhirah','Rajab','Shaʿbān','Ramaḍān','Shawwāl','Dhū al-Qaʿdah','Dhū al-Ḥijjah'];
-const AR_WEEKDAY = { 0:'الأحد',1:'الاثنين',2:'الثلاثاء',3:'الأربعاء',4:'الخميس',5:'الجمعة',6:'السبت' };
-function calMonthDate(){
-  const now = new Date();
-  const d = new Date(now.getFullYear(), now.getMonth()+calOffset, 1);
-  return d;
-}
-async function loadCalendar(){
-  if (!state.coords) { state.coords = { lat:-7.4211, lng:109.2343 }; }
-  const d = calMonthDate();
-  const yyyy = d.getFullYear(), mm = d.getMonth()+1;
-  $('calTitle').innerHTML = d.toLocaleDateString('id-ID',{month:'long',year:'numeric'}) +
-    `<small>Hijriah & jadwal harian — tap tanggal</small>`;
-  const grid = $('calGrid'); grid.innerHTML = '';
-  DOW.forEach(x => grid.innerHTML += `<div class="cal-dow">${x}</div>`);
-
-  const today = new Date();
-  const isCur = calOffset === 0;
-  const firstDow = new Date(yyyy, mm-1, 1).getDay();
-  const daysInMonth = new Date(yyyy, mm, 0).getDate();
-
-  try {
-    const url = `https://api.aladhan.com/v1/calendar?latitude=${state.coords.lat}&longitude=${state.coords.lng}&month=${String(mm).padStart(2,'0')}&year=${yyyy}&method=${state.method}`;
-    const res = await fetch(url); const data = await res.json();
-    const days = data.data || [];
-    const byDay = {};
-    days.forEach(day => {
-      const t = day.timings;
-      const h = day.date.hijri;
-      const mNum = parseInt(h.month.number, 10);
-      const monthEn = h.month.en || (AR_MONTHS[mNum] || '');
-      const monthAr = h.month.ar || (AR_MONTHS[mNum] || '');
-      const wdAr = (h.weekday && h.weekday.ar) || AR_WEEKDAY[day.date.gregorian.weekday?.number ?? new Date(day.date.gregorian.date).getDay()] || '';
-      byDay[parseInt(day.date.gregorian.day,10)] = {
-        hijri: `${h.day} ${monthEn} ${h.year} H`,
-        hijriAr: `${h.day} ${monthAr} ${h.year}هـ`,
-        hijriNum: h.day,
-        monthAr, monthEn, year: h.year, weekdayAr: wdAr,
-        times: { Imsak:t.Imsak.substring(0,5), Subuh:t.Fajr.substring(0,5), Dzuhur:t.Dhuhr.substring(0,5), Ashar:t.Asr.substring(0,5), Maghrib:t.Maghrib.substring(0,5), Isya:t.Isha.substring(0,5) }
-      };
-    });
-
-    for (let i=0;i<firstDow;i++) grid.innerHTML += `<div class="cal-cell empty"></div>`;
-    for (let dd=1; dd<=daysInMonth; dd++){
-      const isToday = isCur && dd === today.getDate();
-      const info = byDay[dd];
-      const sel = info ? `style="--sel:1"` : '';
-      const cell = document.createElement('div');
-      cell.className = 'cal-cell' + (isToday?' today':'') + (info?'':' empty');
-      cell.innerHTML = `${dd}${info ? `<div class="mini">${info.hijri.split(' ')[0]}</div>`:''}`;
-      cell.onclick = () => {
-        if (!info) return;
-        showCalDetail(dd, info);
-        grid.querySelectorAll('.cal-cell').forEach(c=>c.classList.remove('selected'));
-        cell.classList.add('selected');
-      };
-      grid.appendChild(cell);
-    }
-  } catch(e){
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:16px">Gagal memuat kalender.</div>`;
-  }
-}
-function showCalDetail(dd, info){
-  $('calDetail').style.display = 'block';
-  const d = new Date(); // cukup untuk menampilkan hari; detail utama via info
-  $('calDetailTitle').innerHTML =
-    `<div style="font-size:15px">${dd} · ${info.hijri}</div>
-     <div style="font-size:22px;font-weight:800;margin:4px 0;text-align:right;direction:rtl;font-family:'Amiri','Scheherazade New',serif">${info.hijriAr}</div>
-     <div style="font-size:12px;color:var(--muted)">${info.weekdayAr} · ${info.monthAr} ${info.year} هـ</div>`;
-  const order = [['Subuh','🌅'],['Dzuhur','☀️'],['Ashar','🌤️'],['Maghrib','🌇'],['Isya','🌙']];
-  $('calDetailTimes').innerHTML = order.map(([n,em]) =>
-    `<div class="cal-dt"><span>${em} ${n}</span><b>${info.times[n]}</b></div>`).join('');
-}
-$('calPrev').onclick = () => { calOffset--; loadCalendar(); };
-$('calNext').onclick = () => { calOffset++; loadCalendar(); };
-
-/* =====================================================================
-   TAB NAVIGASI (Lokasi / Al-Quran / Qadar)
-   ===================================================================== */
-function closeAllPanels(){
-  ['locPanel','quranPanel','qadarPanel','ytPanel'].forEach(id => { const p=$(id); if(p) p.style.display='none'; });
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-}
-function bindTab(btnId, panelId){
-  $(btnId).onclick = () => {
-    const p = $(panelId);
-    const willOpen = p.style.display !== 'block';
-    closeAllPanels();
-    if (willOpen) { p.style.display='block'; $(btnId).classList.add('on');
-      if (panelId==='quranPanel') loadSurahList();
-      if (panelId==='qadarPanel') renderQadar();
-    }
-  };
-}
-bindTab('tabLoc','locPanel');
-bindTab('tabQuran','quranPanel');
-bindTab('tabQadar','qadarPanel');
-bindTab('tabYT','ytPanel');
-
-/* =====================================================================
-   MULTI-LOKASI
-   ===================================================================== */
-function saveCurrentLocation(){
-  if (!state.coords) { toast('Aktifkan lokasi dulu (📍)'); return; }
-  const name = state.locName || `${state.coords.lat.toFixed(3)}, ${state.coords.lng.toFixed(3)}`;
-  // cek duplikat
-  const dup = state.savedLocations.findIndex(l =>
-    Math.abs(l.lat-state.coords.lat)<0.01 && Math.abs(l.lng-state.coords.lng)<0.01);
-  if (dup>=0) { toast('Lokasi ini sudah tersimpan'); renderSavedLocations(); return; }
-  state.savedLocations.push({ name, lat: state.coords.lat, lng: state.coords.lng });
-  save(); renderSavedLocations(); toast(`📍 "${name}" disimpan`);
-}
-$('saveLocBtn').onclick = saveCurrentLocation;
-
-function renderSavedLocations(){
-  const c = $('savedLocList'); c.innerHTML = '';
-  if (!state.savedLocations.length) {
-    c.innerHTML = '<div style="font-size:11.5px;color:var(--muted)">Belum ada lokasi tersimpan.</div>'; return;
-  }
-  state.savedLocations.forEach((loc, i) => {
-    const div = document.createElement('div'); div.className='saved-item';
-    div.innerHTML = `<span class="nm">${loc.name}</span>
-      <button class="btn2 go" data-i="${i}">✓ Pakai</button>
-      <button class="btn2" data-del="${i}">🗑</button>`;
-    div.querySelector('[data-i]').onclick = () => {
-      state.coords = { lat: loc.lat, lng: loc.lng };
-      state.locName = loc.name; state.accuracy = null;
-      save();
-      setLocStatus('ok',`<b>${loc.name}</b> · ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`);
-      getJadwal();
-      toast(`Lokasi diaktifkan: ${loc.name}`);
-    };
-    div.querySelector('[data-del]').onclick = () => {
-      state.savedLocations.splice(i,1); save(); renderSavedLocations();
-    };
-    c.appendChild(div);
-  });
-}
-renderSavedLocations();
-
-/* =====================================================================
-   MENG AJI AL-QURAN (teks + terjemahan + audio per-ayat)
-   ===================================================================== */
-let surahCache = {};      // nomor -> data detail
-let quranListView = true; // sedang di daftar surat atau baca surat
-let activeSurah = null;   // nomor surat yang sedang dibaca
-
-// Map kode qari equran.id -> bagian URL cdn
-const QARI_PATH = {
-  '01':'Abdullah-Al-Juhany','02':'Abdul-Muhsin-Al-Qasim',
-  '03':'Abdurrahman-as-Sudais','04':'Ibrahim-Al-Dossari',
-  '05':'Misyari-Rasyid-Al-Afasi','06':'Yasser-Al-Dosari',
-};
-const QARI_NAME = {
-  '01':'Abdullah Al-Juhany','02':'Abdul Muhsin Al-Qasim',
-  '03':'Abdurrahman As-Sudais','04':'Ibrahim Al-Dossari',
-  '05':'Misyari Rasyid Al-Afasi','06':'Yasser Al-Dosari',
-};
-
-function quranAudioUrl(surahNo, qariPath, ayahNo){
-  const q = qariPath || QARI_PATH[state.quranReciter] || 'Misyari-Rasyid-Al-Afasi';
-  if (ayahNo) {
-    return `https://cdn.equran.id/audio-partial/${q}/${String(surahNo).padStart(3,'0')}${String(ayahNo).padStart(3,'0')}.mp3`;
-  }
-  return `https://cdn.equran.id/audio-full/${q}/${String(surahNo).padStart(3,'0')}.mp3`;
-}
-
-async function loadSurahList(){
-  const list = $('surahList');
-  if (list.dataset.loaded) return;
-  list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)"><span class="loader"></span> Memuat daftar surat…</div>';
-  try {
-    const res = await fetch('https://equran.id/api/v2/surat');
-    const d = await res.json();
-    const surats = d.data || [];
-    list.innerHTML = '';
-    surats.forEach(s => {
-      const div = document.createElement('div');
-      div.className = 'surah-item';
-      div.innerHTML = `
-        <div class="si-num">${s.nomor}</div>
-        <div class="si-info">
-          <div class="si-latin">${s.namaLatin}</div>
-          <div class="si-arti">${s.arti} · ${s.jumlahAyat} ayat · ${s.tempatTurun}</div>
-        </div>
-        <div class="si-arab" dir="rtl">${s.nama}</div>`;
-      div.onclick = () => openSurah(s.nomor, s);
-      list.appendChild(div);
-    });
-    list.dataset.loaded = '1';
-  } catch(e){
-    list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--danger)">Gagal memuat daftar surat. Cek internet.</div>';
-  }
-}
-
-async function openSurah(nomor, meta){
-  $('quranBack').style.display = 'grid';
-  $('quranTitle').textContent = meta ? meta.namaLatin : 'Baca Surat';
-  $('surahList').style.display = 'none';
-  $('surahReader').style.display = 'block';
-  quranListView = false;
-
-  const reader = $('ayahList');
-  reader.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)"><span class="loader"></span> Memuat surat…</div>';
-  activeSurah = nomor;
-
-  let data;
-  if (surahCache[nomor]) { data = surahCache[nomor]; }
-  else {
-    try {
-      const res = await fetch(`https://equran.id/api/v2/surat/${nomor}`);
-      const d = await res.json(); data = d.data; surahCache[nomor] = data;
-    } catch(e){
-      reader.innerHTML = '<div style="padding:20px;text-align:center;color:var(--danger)">Gagal memuat surat.</div>'; return;
-    }
-  }
-
-  const qari = QARI_NAME[state.quranReciter] || 'Misyari Rasyid Al-Afasi';
-  $('quranMeta').innerHTML =
-    `<span class="qm-arab" dir="rtl">${data.nama}</span>
-     <span class="qm-latin">${data.namaLatin} — ${data.arti}</span>
-     <span class="qm-sub">${data.jumlahAyat} ayat · ${data.tempatTurun} · Qari: ${qari}</span>`;
-
-  reader.innerHTML = '';
-  data.ayat.forEach((a, idx) => {
-    const wrap = document.createElement('div');
-    wrap.className = 'ayah';
-    wrap.innerHTML = `
-      <div class="ayah-body">
-        <div class="ayah-arab" dir="rtl">${a.teksArab} <span class="ayah-num">${a.nomorAyat}</span></div>
-        <div class="ayah-latin">${a.teksLatin}</div>
-        <div class="ayah-id">${a.teksIndonesia}</div>
-      </div>
-      <button class="ayah-play" data-s="${nomor}" data-a="${a.nomorAyat}" title="Putar ayat">▶</button>`;
-    wrap.querySelector('.ayah-play').onclick = (e) => {
-      e.stopPropagation();
-      playAyah(nomor, a.nomorAyat);
-    };
-    reader.appendChild(wrap);
-  });
-}
-
-function playAyah(surahNo, ayahNo){
-  const url = quranAudioUrl(surahNo, null, ayahNo);
-  const a = $('quranAudio'); a.src = url; a.style.display='block';
-  a.play().catch(()=>toast('Gagal memutar ayat. Cek internet.'));
-}
-
-$('quranPlayFull').onclick = () => {
-  const a = $('quranAudio'); a.style.display='block';
-  if (activeSurah) {
-    a.src = quranAudioUrl(activeSurah, null, null);
-    a.play().catch(()=>toast('Gagal memutar surat. Cek internet.'));
-  } else {
-    toast('Buka surat dulu untuk memutar penuh.');
-  }
-};
-$('quranStopFull').onclick = () => { const a=$('quranAudio'); a.pause(); a.currentTime=0; };
-
-$('quranBack').onclick = () => {
-  if (karaokeOn) stopKaraoke();
-  quranListView = true;
-  $('surahList').style.display = 'block';
-  $('surahReader').style.display = 'none';
-  $('quranBack').style.display = 'none';
-  $('quranTitle').textContent = 'Daftar Surat';
-  const a = $('quranAudio'); a.pause(); a.currentTime=0; a.style.display='none';
-};
-
-$('quranReciterSel').onchange = e => { state.quranReciter = e.target.value; save(); };
-
-/* =====================================================================
-   KARAOKE — word-by-word highlighting + auto-scroll (sinron audio)
-   ===================================================================== */
-let karaokeOn = false, karaokeIdx = 0, karaokeWords = [], karaokeAudio = null;
-
-function karaokeAyatAudio(ayat){
-  const obj = ayat.audio || {};
-  return obj[state.quranReciter] || Object.values(obj)[0] || null;
-}
-
-function setKPlayLabel(playing){
-  $('kPlay').textContent = playing ? '⏸' : '▶️';
-}
-
-// Pecah teks arab ayat menjadi kata-kata untuk highlight (sumber equran, tanpa API ekstra)
-function splitArabic(text){
-  return String(text||'').split(/\s+/).filter(Boolean);
-}
-
-// RENDER SEKALI seluruh surat: semua ayat (kata-kata + latin + terjemahan)
-// ditampilkan langsung, tanpa loading per-ayat. Highlight berjalan di dalam
-// ayat yang sedang diputar, lalu auto-scroll ke ayat berikutnya.
-// Gulir kontainer karaoke HANYA jika elemen berada DI LUAR area terlihat,
-// agar di awal (ayat 1, kata 1) tampilan tetap di atas dan tidak loncat ke bawah.
-function centerInBox(box, el){
-  if (!el || !box) return;
-  const bTop = box.getBoundingClientRect().top;
-  const bBottom = bTop + box.clientHeight;
-  const eTop = el.getBoundingClientRect().top;
-  const eBottom = eTop + el.getBoundingClientRect().height;
-  // jika sudah terlihat penuh -> jangan gerakkan scroll
-  if (eTop >= bTop && eBottom <= bBottom) return;
-  box.scrollTop += (eTop - bTop) - (box.clientHeight / 2) + (el.getBoundingClientRect().height / 2);
-}
-
-function renderKaraokeSurah(){
-  const data = surahCache[activeSurah];
-  if (!data) return;
-  const box = $('karaokeAyah');
-  // KOSONGKAN dulu + paksa reflow agar browser "menyadari" konten baru
-  box.innerHTML = '';
-  box.scrollTop = 0;
-  // hentikan audio lama & reset semua state
-  if (karaokeAudio) { karaokeAudio.pause(); karaokeAudio = null; }
-
-  let html = '';
-  data.ayat.forEach((a, idx) => {
-    const words = splitArabic(a.teksArab);
-    let khtml = '';
-    for (let i = words.length - 1; i >= 0; i--) {
-      khtml += `<span class="k-word" data-v="${idx}" data-i="${i}">${words[i]}</span>`;
-    }
-    html += `<div class="k-block" data-v="${idx}">
-      <div class="k-verse">${khtml}</div>
-      <div class="k-latin">${a.teksLatin||''}</div>
-      <div class="k-id">${a.teksIndonesia}</div>
-    </div>`;
-  });
-  box.innerHTML = html;
-
-  // MULAI DARI AYAT 1 (PASTI): label + indeks + kata ayat pertama
-  $('kAyahNum').textContent = `Surat ${data.namaLatin} — Ayat ${data.ayat[0].nomorAyat}`;
-  karaokeIdx = 0;
-  karaokeWords = splitArabic(data.ayat[0].teksArab);
-
-  // Gulir ke ATAS secara berlapis (layout selesai -> beberapa frame -> telat 100ms),
-  // memaksa reflow (offsetHeight) agar benar-benar scrollTop=0 walau konten 200+ ayat.
-  const forceTop = () => {
-    if (box) { box.scrollTop = 0; box.scrollTop = 0; void box.offsetHeight; }
-    if (document.documentElement) document.documentElement.scrollTop = 0;
-    if (document.body) document.body.scrollTop = 0;
-    if (window.scrollTo) window.scrollTo(0, 0);
-    const kv = $('karaokeView'); if (kv) kv.scrollTop = 0;
-  };
-  forceTop();
-  requestAnimationFrame(() => {
-    forceTop();
-    requestAnimationFrame(() => {
-      forceTop();
-      setTimeout(forceTop, 100);
-    });
-  });
-
-  // Mulai audio ayat 1 SETELAH scroll dipastikan di atas (delay kecil)
-  setTimeout(() => { if (karaokeOn) playKaraokeAudio(data.ayat[0]); }, 120);
-}
-
-function playKaraokeAudio(ayat){
-  if (karaokeAudio) { karaokeAudio.pause(); karaokeAudio = null; }
-  const url = karaokeAyatAudio(ayat);
-  setKPlayLabel(true);
-  // JANGAN otomatis lanjut bila tidak ada audio: tetap tampil di ayat ini.
-  if (!url) { return; }
-  const a = new Audio(url);
-  karaokeAudio = a;
-  a.play().catch(()=>{});
-  let advanced = false;
-  const advanceOnce = () => { if (!advanced) { advanced = true; advanceKaraoke(); } };
-  a.ontimeupdate = () => {
-    if (!a.duration || !karaokeWords.length || advanced) return;
-    const n = Math.floor((a.currentTime / a.duration) * karaokeWords.length);
-    highlightKaraoke(karaokeIdx, n);
-  };
-  a.onended = advanceOnce;
-  a.onerror = () => { /* biarkan tampil tanpa audio, jangan lompat */ };
-}
-
-function highlightKaraoke(v, n){
-  const box = $('karaokeAyah');
-  // tandai ayat aktif
-  box.querySelectorAll('.k-block').forEach(b => b.classList.toggle('active', Number(b.dataset.v) === v));
-  // Highlight memakai data-i (indeks kata asli). Kata indeks 0 diletakkan paling
-  // kanan (RTL), sehingga kata menyala dari kanan ke kiri mengikuti urutan bacaan.
-  const words = box.querySelectorAll(`.k-block[data-v="${v}"] .k-word`);
-  words.forEach(el => {
-    const wi = Number(el.dataset.i);
-    el.classList.toggle('lit', wi < n);
-    el.classList.toggle('cur', wi === n);
-  });
-  const cur = box.querySelector(`.k-block[data-v="${v}"] .k-word[data-i="${n}"]`);
-  if (cur) centerInBox(box, cur);
-}
-
-function advanceKaraoke(){
-  if (!karaokeOn) return;
-  karaokeIdx++;
-  const data = surahCache[activeSurah];
-  if (data && karaokeIdx < data.ayat.length) {
-    const ayat = data.ayat[karaokeIdx];
-    karaokeWords = splitArabic(ayat.teksArab);
-    $('kAyahNum').textContent = `Surat ${data.namaLatin} — Ayat ${ayat.nomorAyat}`;
-    // scroll ke blok ayat aktif (tanpa me-render ulang)
-    const blk = $('karaokeAyah').querySelector(`.k-block[data-v="${karaokeIdx}"]`);
-    if (blk) centerInBox($('karaokeAyah'), blk);
-    playKaraokeAudio(ayat);
-  } else {
-    stopKaraoke(); toast('Selesai tilawah surat ini 🎉');
-  }
-}
-
-function toggleKaraoke(){
-  if (!activeSurah) { toast('Buka surat dulu untuk karaoke'); return; }
-  if (karaokeOn) { stopKaraoke(); return; }
-  karaokeOn = true;
-  $('ayahList').style.display = 'none';
-  $('karaokeView').style.display = 'block';
-  $('karaokeToggle').textContent = '⏹ Keluar Mode Karaoke';
-  const a = $('quranAudio'); a.pause(); a.currentTime=0;
-  renderKaraokeSurah();
-}
-
-function stopKaraoke(){
-  karaokeOn = false;
-  if (karaokeAudio) { karaokeAudio.pause(); karaokeAudio = null; }
-  $('ayahList').style.display = 'block';
-  $('karaokeView').style.display = 'none';
-  $('karaokeToggle').textContent = '🎤 Mode Karaoke (per kata)';
-  setKPlayLabel(false);
-}
-
-$('karaokeToggle').onclick = toggleKaraoke;
-$('kPrev').onclick = () => {
-  if (karaokeOn && karaokeIdx>0){
-    karaokeIdx--;
-    const data = surahCache[activeSurah];
-    if (data){
-      karaokeWords = splitArabic(data.ayat[karaokeIdx].teksArab);
-      $('kAyahNum').textContent = `Surat ${data.namaLatin} — Ayat ${data.ayat[karaokeIdx].nomorAyat}`;
-      const blk = $('karaokeAyah').querySelector(`.k-block[data-v="${karaokeIdx}"]`);
-      if (blk) centerInBox($('karaokeAyah'), blk);
-      playKaraokeAudio(data.ayat[karaokeIdx]);
-    }
-  }
-};
-$('kNext').onclick = () => { if (karaokeOn) advanceKaraoke(); };
-$('kPlay').onclick = () => {
-  if (!karaokeAudio) { renderKaraokeSurah(); return; }
-  if (karaokeAudio.paused) { karaokeAudio.play(); setKPlayLabel(true); }
-  else { karaokeAudio.pause(); setKPlayLabel(false); }
-};
-
-/* =====================================================================
-   LAILATUL QADAR & DOA HARIAN
-   ===================================================================== */
-const DOAS = [
-  { title:'Doa Lailatul Qadar',
-    ar:'اللَّهُمَّ إِنَّكَ عَفُوٌّ تُحِبُّ الْعَفْوَ فَاعْفُ عَنِّي',
-    latin:"Allahumma innaka 'afuwwun tuhibbul 'afwa fa'fu 'anni",
-    meaning:'Ya Allah, sesungguhnya Engkau Maha Pemaaf dan menyukai maaf, maka maafkanlah aku.' },
-  { title:'Doa Mohon Ampunan',
-    ar:'رَبِّ اغْفِرْ لِي وَتُبْ عَلَيَّ إِنَّكَ أَنْتَ التَّوَّابُ الرَّحِيمُ',
-    latin:"Rabbighfir lii wa tub 'alayya innaka antat-tawwabur-rahim",
-    meaning:'Ya Tuhanku, ampunilah aku dan terimalah taubatku. Sesungguhnya Engkau Maha Penerima taubat lagi Maha Penyayang.' },
-  { title:'Doa Kebaikan Dunia Akhirat',
-    ar:'رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ',
-    latin:"Rabbanaa aatinaa fid-dunya hasanah wa fil-aakhirati hasanah wa qinaa 'adzaban-naar",
-    meaning:'Ya Tuhan kami, berilah kami kebaikan di dunia dan kebaikan di akhirat, serta lindungilah kami dari siksa neraka.' },
-  { title:'Doa Memohon Keteguhan',
-    ar:'يَا مُقَلِّبَ الْقُلُوبِ ثَبِّتْ قَلْبِي عَلَى دِينِكَ',
-    latin:"Yaa muqallibal-quluub tsabbit qalbii 'alaa diinik",
-    meaning:'Wahai Pembolak-balik hati, teguhkanlah hatiku di atas agama-Mu.' },
-  { title:'Doa Keselamatan',
-    ar:'اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَافِيَةَ فِي الدُّنْيَا وَالْآخِرَةِ',
-    latin:"Allahumma inni as'alukal-'afiyah fid-dunya wal-akhirah",
-    meaning:'Ya Allah, aku memohon kepada-Mu keselamatan di dunia dan akhirat.' },
-];
-let doaIndex = 0;
-function getHijriToday(){
-  // Pakai tanggal hijriah yang sudah diambil dari jadwal (state.hijriInfo)
-  return state.hijriInfo || null;
-}
-function renderQadar(){
-  const banner = $('qadarBanner');
-  const hi = state.hijriInfo;
-  const isRamadan = hi && (hi.monthEn.toLowerCase().includes('ramad'));
-  const oddNight = isRamadan && hi && [21,23,25,27,29].includes(parseInt(hi.day,10));
-  if (isRamadan && oddNight) {
-    banner.className = 'qadar-banner';
-    banner.innerHTML = `<div class="big">🌙 Malam Lailatul Qadar (diharapkan)</div>
-      <div class="sub">Hijriah ${hi.day} Ramadan ${hi.year} H. Perbanyak ibadah & doa di malam ini.</div>`;
-  } else if (isRamadan) {
-    banner.className = 'qadar-banner normal';
-    banner.innerHTML = `<div class="big">🌙 Bulan Ramadan ${hi.year} H</div>
-      <div class="sub">Hari ini: ${hi.day} Ramadan. Malam-malam ganjil (21,23,25,27,29) berpeluang Lailatul Qadar.</div>`;
-  } else {
-    banner.className = 'qadar-banner normal';
-    banner.innerHTML = `<div class="big">📿 Doa Harian</div>
-      <div class="sub">Hijriah: ${hi ? hi.day+' '+hi.monthEn+' '+hi.year+' H' : '—'} · Sepuluh malam terakhir Ramadan = Lailatul Qadar.</div>`;
-  }
-  showDoa();
-}
-function showDoa(){
-  const d = DOAS[doaIndex % DOAS.length];
-  $('doaTitle').textContent = d.title;
-  $('doaAr').textContent = d.ar;
-  $('doaLatin').textContent = d.latin;
-  $('doaMeaning').textContent = d.meaning;
-}
-$('doaNext').onclick = () => { doaIndex++; showDoa(); };
-
-/* =====================================================================
-   PENGINGAT HARIAN
-   ===================================================================== */
-function renderDailyReminders(){
-  const c = $('remList'); c.innerHTML='';
-  if (!state.dailyReminders.length) {
-    c.innerHTML = '<div style="font-size:11.5px;color:var(--muted)">Belum ada pengingat harian.</div>'; return;
-  }
-  state.dailyReminders.forEach((r,i) => {
-    const div = document.createElement('div'); div.className='saved-item';
-    div.innerHTML = `<span class="nm">⏰ ${r.time}</span><button class="btn2" data-rem="${i}">🗑</button>`;
-    div.querySelector('[data-rem]').onclick = () => { state.dailyReminders.splice(i,1); save(); renderDailyReminders(); };
-    c.appendChild(div);
-  });
-}
-$('addRemBtn').onclick = () => {
-  const v = $('remTimeInput').value;
-  if (!v) { toast('Pilih jam dulu'); return; }
-  if (state.dailyReminders.some(r=>r.time===v)) { toast('Jam ini sudah ada'); return; }
-  state.dailyReminders.push({ time: v });
-  state.dailyReminders.sort((a,b)=>a.time.localeCompare(b.time));
-  save(); renderDailyReminders(); toast(`Pengingat harian ${v} ditambahkan ⏰`);
-};
-
-function checkDailyReminders(now){
-  const curHM = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const dayKey = todayKey();
-  state.remSent = state.remSent || {};
-  state.dailyReminders.forEach(r => {
-    if (r.time === curHM) {
-      const key = `${dayKey}_${r.time}`;
-      if (!state.remSent[key]) {
-        state.remSent[key] = true; save();
-        playReminder('Pengingat', r.time, 1);
-        try {
-          if (Notification.permission === 'granted')
-            new Notification('⏰ Pengingat Harian', { body:`Pengingat pukul ${r.time}.`, icon:'icons/icon-192.png', tag:key });
-        } catch(e){}
-      }
-    }
-  });
-}
-
-/* =====================================================================
-   TOAST
-   ===================================================================== */
-let toastTimer;
-function toast(msg){
-  const t = $('toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 3200);
-}
-
-/* =====================================================================
-   LOKASI
-   ===================================================================== */
-function setLocStatus(kind, text){
-  const d = $('locDot'); d.className = 'dot' + (kind? ' '+kind:'');
-  $('locText').innerHTML = text;
-}
-
-function useGPS(){
-  if (!navigator.geolocation) { setLocStatus('err','GPS tidak didukung browser ini'); return; }
-  $('gpsBtn').disabled = true;
-  setLocStatus('busy','<span class="loader"></span> Mencari lokasi presisi tinggi…');
-  navigator.geolocation.getCurrentPosition(
-    async pos => {
-      $('gpsBtn').disabled = false;
-      const { latitude, longitude, accuracy } = pos.coords;
-      state.coords = { lat: latitude, lng: longitude };
-      state.accuracy = accuracy;
-      setLocStatus('ok',`GPS akurat ±${Math.round(accuracy)} m · ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-      save();
-      await reverseGeocode();
-      getJadwal();
-    },
-    err => {
-      $('gpsBtn').disabled = false;
-      let msg = 'Gagal akses GPS';
-      if (err.code === 1) msg = 'Izin GPS ditolak. Perbolehkan akses lokasi.';
-      if (err.code === 3) msg = 'Waktu GPS habis. Coba lagi.';
-      setLocStatus('err', msg);
-    },
-    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-  );
-}
-$('gpsBtn').onclick = useGPS;
-
-async function reverseGeocode(){
-  if (!state.coords) return;
-  try {
-    const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${state.coords.lat}&longitude=${state.coords.lng}&localityLanguage=id`);
-    const d = await r.json();
-    state.locName = [d.city||d.locality, d.principalSubdivision||d.principalSubdivisionCode].filter(Boolean).join(', ') || 'Lokasi GPS';
-    setLocStatus('ok',`<b>${state.locName}</b> · ${state.coords.lat.toFixed(5)}, ${state.coords.lng.toFixed(5)}`);
-  } catch(e){ state.locName = 'Lokasi GPS'; }
-}
-
-async function cariKota(){
-  const q = $('inputKota').value.trim();
-  if (!q) { toast('Ketik nama kota dulu'); return; }
-  setLocStatus('busy','<span class="loader"></span> Mencari kota…');
-  try {
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&accept-language=id&countrycodes=id`);
-    const list = await r.json();
-    if (list && list[0]) {
-      state.coords = { lat: parseFloat(list[0].lat), lng: parseFloat(list[0].lon) };
-      state.locName = list[0].display_name.split(',').slice(0,3).join(',').trim();
-      state.accuracy = null;
-      save();
-      setLocStatus('ok',`<b>${state.locName}</b> · ${state.coords.lat.toFixed(4)}, ${state.coords.lng.toFixed(4)}`);
-      getJadwal();
-    } else { setLocStatus('err','Kota tidak ditemukan'); }
-  } catch(e){ setLocStatus('err','Gagal mencari kota'); }
-}
-$('cariBtn').onclick = cariKota;
-$('inputKota').addEventListener('keydown', e => { if (e.key==='Enter') cariKota(); });
-
-/* =====================================================================
-   JADWAL
-   ===================================================================== */
-const todayKey = () => new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
-
-async function getJadwal(){
-  if (!state.coords) {
-    // default ke koordinat user (Purwokerto, Jawa Tengah) jika belum ada lokasi
-    state.coords = { lat: -7.4211, lng: 109.2343 };
-    if (!state.locName) {
-      state.locName = 'Purwokerto, Jawa Tengah';
-      setLocStatus('ok', `<b>${state.locName}</b> · ketuk 📍 untuk presisi GPS`);
-    }
-  }
-  $('locText') && (document.title = 'Sholat App — memuat…');
-  try {
-    const now = new Date();
-    const dd = String(now.getDate()).padStart(2,'0');
-    const mm = String(now.getMonth()+1).padStart(2,'0');
-    const yyyy = now.getFullYear();
-    const url = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${state.coords.lat}&longitude=${state.coords.lng}&method=${state.method}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    const t = data.data.timings;
-    state.jadwal = {
-      Imsak: t.Imsak?.substring(0,5),
-      Subuh: t.Fajr?.substring(0,5),
-      Dzuhur: t.Dhuhr?.substring(0,5),
-      Ashar: t.Asr?.substring(0,5),
-      Maghrib: t.Maghrib?.substring(0,5),
-      Isya: t.Isha?.substring(0,5),
-    };
-    state.todayKey = todayKey();
-    // Hijri
-    try {
-      const hd = data.data.date.hijri;
-      const mNum = parseInt(hd.month.number, 10);
-      const monthEn = hd.month.en;
-      const monthAr = hd.month.ar || (AR_MONTHS[mNum] || hd.month.en);
-      state.hijriInfo = { day: hd.day, monthEn, monthAr, year: hd.year, monthNum: mNum };
-      $('hijri').innerHTML = `${hd.day} ${monthEn} ${hd.year} H
-        <span dir="rtl" style="font-family:'Amiri','Scheherazade New',serif;font-size:15px;color:var(--accent)">${hd.day} ${monthAr} ${hd.year}هـ</span>`;
-    } catch(e){}
-    if (!state.locName) {
-      setLocStatus('ok',`<b>${state.coords.lat.toFixed(4)}, ${state.coords.lng.toFixed(4)}</b>`);
-    }
-    renderJadwal();
-    document.title = 'Sholat App — Jadwal & Pengingat';
-  } catch(e) {
-    toast('Gagal ambil jadwal. Periksa internet & coba lagi.');
-  }
-}
-
-function renderJadwal(){
-  const g = $('jadwal'); g.innerHTML = '';
-  if (state.jadwal.Imsak) {
-    g.innerHTML += `<div class="card imsak passed" data-k="Imsak"><div class="name"><span class="em">🌄</span>Imsak</div><div class="time">${state.jadwal.Imsak}</div><div class="tag">Awal puasa</div></div>`;
-  }
-  PRAYERS.forEach(p => {
-    const t = state.jadwal[p.key];
-    if (!t) return;
-    const div = document.createElement('div');
-    div.className = 'card';
-    div.dataset.k = p.key;
-    div.innerHTML = `<div class="name"><span class="em">${p.em}</span>${p.key}</div><div class="time">${t}</div><div class="tag">—</div>`;
-    g.appendChild(div);
-  });
-}
-
-/* =====================================================================
-   JAM + COUNTDOWN (tick tiap detik)
-   ===================================================================== */
-function toMin(s){ const [h,m]=s.split(':').map(Number); return h*60+(m||0); }
-function pad(n){ return String(n).padStart(2,'0'); }
-function fmtDuration(min){
-  const h=Math.floor(min/60), m=min%60, s=(60-new Date().getSeconds())%60;
-  return `${pad(h)}:${pad(m)}:${pad(s)}`;
-}
-
-function tick(){
-  const now = new Date();
-  const hm = now.toTimeString().substring(0,5);
-  const curMin = now.getHours()*60 + now.getMinutes();
-
-  // jam & tanggal
-  $('jam').textContent = now.toLocaleTimeString('id-ID');
-  $('tanggal').textContent = now.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-
-  if (Object.keys(state.jadwal).length === 0) { $('nextPray').textContent='—'; $('nextAt').textContent='—'; return; }
-
-  // cari sholat berikutnya
-  let next=null, best=9999;
-  for (const [name,time] of Object.entries(state.jadwal)) {
-    let m = toMin(time); if (m < curMin) m += 1440;
-    const diff = m - curMin;
-    if (diff > 0 && diff < best) { best = diff; next = {name, time}; }
-  }
-
-  if (next) {
-    $('nextPray').textContent = next.name;
-    $('countdown').textContent = fmtDuration(best);
-    $('nextAt').textContent = `Pukul ${next.time}`;
-  } else {
-    // sudah lewat semua -> sholat pertama besok (Subuh)
-    const subuh = state.jadwal.Subuh || '04:00';
-    let m = toMin(subuh)+1440;
-    $('nextPray').textContent = 'Subuh (besok)';
-    $('countdown').textContent = fmtDuration(m - curMin);
-    $('nextAt').textContent = `Pukul ${subuh}`;
-  }
-
-  // highlight: aktif (terlewat hari ini) & berikutnya
-  const nowMin = curMin;
-  document.querySelectorAll('.card').forEach(c => {
-    const k = c.dataset.k; const t = state.jadwal[k];
-    c.classList.toggle('passed', !!t && toMin(t) <= nowMin && k!=='Imsak');
-    c.classList.toggle('next', !!next && k === next.name);
-    const tag = c.querySelector('.tag');
-    if (tag) tag.textContent = (k === next.name) ? 'Berikutnya' : ((t && toMin(t) <= nowMin) ? 'Sudah lewat' : '');
-  });
-
-  // notifikasi
-  if (state.notifyOn) checkNotifications(now);
-  checkDailyReminders(now);
-}
-
-/* =====================================================================
-   NOTIFIKASI
-   ===================================================================== */
-function notifSupported(){ return 'Notification' in window; }
-
-function updateNotifStatus(){
-  const st = $('notifStatus');
-  if (!notifSupported()) { st.textContent = 'Notifikasi tidak didukung browser ini.'; st.classList.add('off'); return; }
-  if (Notification.permission === 'granted') { st.textContent = '✅ Izin notifikasi aktif — pengingat siap.'; st.classList.remove('off'); }
-  else if (Notification.permission === 'denied') { st.textContent = '⛔ Izin ditolak. Aktifkan di pengaturan browser/sistem.'; st.classList.add('off'); }
-  else { st.textContent = 'Izin belum diberikan. Ketuk tombol di bawah.'; st.classList.remove('off'); }
-}
-$('reqPermBtn').onclick = async () => {
-  if (!notifSupported()) { toast('Notifikasi tidak didukung'); return; }
-  const r = await Notification.requestPermission();
-  updateNotifStatus();
-  if (r === 'granted') toast('✅ Notifikasi aktif!');
-};
-$('testNotifBtn').onclick = () => {
-  if (!notifSupported()) { toast('Notifikasi tidak didukung'); return; }
-  if (Notification.permission === 'granted') {
-    try { new Notification('🔔 Sholat App', { body:'Ini uji coba notifikasi. Pengingat akan berbunyi sebelum waktu sholat.', icon:'icons/icon-192.png' }); toast('Notifikasi uji dikirim ✅'); }
-    catch(e){ toast('Gagal kirim uji coba'); }
-  } else { toast('Aktifkan izin notifikasi dulu'); updateNotifStatus(); }
-};
-
-function checkNotifications(now){
-  if (!notifSupported() || Notification.permission !== 'granted') return;
-  const dayKey = todayKey().replace(/-/g,'');
-  for (const [name, time] of Object.entries(state.jadwal)) {
-    const off = state.offsets[name] ?? 10;
-    if (off <= 0) continue;
-    const target = toMin(time) - off;
-    const key = `${dayKey}_${name}`;
-    // bandingkan menit saat ini dengan menit target
-    const curMin = now.getHours()*60 + now.getMinutes();
-    if (curMin === target && !state.notifSent[key]) {
-      state.notifSent[key] = true;
-      playReminder(name, time, off);
-      try {
-        new Notification(`⏰ ${name} dalam ${off} menit`, {
-          body: `Pukul ${time} waktunya sholat ${name}. Segera tunaikan.`,
-          icon: 'icons/icon-192.png',
-          tag: key,
-        });
-      } catch(e){}
-    }
-  }
-}
-
-/* =====================================================================
-   AUDIO — ADZAN / BIP
-   ===================================================================== */
-let audioEl = new Audio();
-function getAdzanSrc(){
-  switch (state.soundType) {
-    case 'adzanBilal': return 'audio/adzan-bilal.mp3';
-    case 'custom': return (state.adzanUrl && state.adzanUrl.trim()) ? state.adzanUrl.trim() : 'audio/adzan.mp3';
-    default: return 'audio/adzan.mp3';
-  }
-}
-function setupAudio(){
-  audioEl.src = getAdzanSrc();
-  audioEl.preload = 'auto';
-}
-setupAudio();
-function playReminder(name, time, off){
-  if (!state.soundOn) return;
-  try {
-    audioEl.volume = Math.max(0, Math.min(1, state.volume || 0.8));
-    if (state.soundType === 'beep') {
-      playBeep();
-    } else {
-      audioEl.src = getAdzanSrc(); // pastikan sesuai pilihan
-      audioEl.currentTime = 0; audioEl.play().catch(()=>{});
-    }
-  } catch(e){}
-}
-let beepCtx = null;
-function playBeep(){
-  try {
-    if (!beepCtx) beepCtx = new (window.AudioContext||window.webkitAudioContext)();
-    if (beepCtx.state === 'suspended') beepCtx.resume();
-    const osc = beepCtx.createOscillator(), gain = beepCtx.createGain();
-    osc.type = 'sine'; osc.frequency.value = 880;
-    gain.gain.value = Math.max(0, Math.min(1, state.volume || 0.8)) * 0.6;
-    osc.connect(gain); gain.connect(beepCtx.destination);
-    osc.start();
-    for (let i = 1; i <= 3; i++){
-      const g2 = beepCtx.createGain(), o2 = beepCtx.createOscillator();
-      o2.type = 'sine'; o2.frequency.value = 880;
-      g2.gain.setValueAtTime(0, beepCtx.currentTime + i*0.6);
-      o2.connect(g2); g2.connect(beepCtx.destination);
-      o2.start(beepCtx.currentTime + i*0.6); o2.stop(beepCtx.currentTime + i*0.6 + 0.4);
-    }
-    osc.stop(beepCtx.currentTime + 0.5);
-  } catch(e){}
-}
-$('testSoundBtn').onclick = () => playReminder('uji', '—', 1);
-$('soundToggle').onchange = e => { state.soundOn = e.target.checked; save(); };
-$('soundTypeSel').onchange = e => { state.soundType = e.target.value; save(); setupAudio(); };
-$('volumeRange').oninput = e => { state.volume = parseFloat(e.target.value); save(); };
-$('adzanUrlInput').onchange = e => {
-  const v = e.target.value.trim();
-  state.adzanUrl = v; save(); setupAudio();
-  if (v) toast('MP3 adzan kustom disimpan 🎵');
-};
-
-/* =====================================================================
-   ADZAN YOUTUBE (streaming, menghormati hak cipta)
-   ===================================================================== */
-const YT_ADZAN_ID = 'L6FEUTm20iA';
-function loadYTAdzan(wrap, btn){
-  if (wrap.style.display === 'block') { wrap.style.display='none'; btn.textContent='▶️ Putar Adzan (YouTube)'; return; }
-  if (!wrap.innerHTML) {
-    wrap.innerHTML = `<iframe width="100%" height="220" src="https://www.youtube-nocookie.com/embed/${YT_ADZAN_ID}?autoplay=1&rel=0"
-      title="Adzan Bilal bin Rabah" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowfullscreen style="display:block;background:#000"></iframe>`;
-  }
-  wrap.style.display = 'block';
-  btn.textContent = '⏹ Tutup Adzan (YouTube)';
-}
-$('ytPanelBtn').onclick = () => loadYTAdzan($('ytPanelWrap'), $('ytPanelBtn'));
-$('ytAdzanBtn').onclick = () => loadYTAdzan($('ytAdzanWrap'), $('ytAdzanBtn'));
-
-/* =====================================================================
-   PWA INSTALL
-   ===================================================================== */
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault(); deferredPrompt = e;
-  const b = $('installBanner'); b.classList.add('show');
-});
-$('installBtn').onclick = async () => {
-  $('installBanner').classList.remove('show');
-  if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; }
-  else toast('Buka menu browser → "Tambahkan ke layar utama"');
-};
-
-/* Service Worker (offline + installability) */
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-  });
-}
-
-/* =====================================================================
-   FIREBASE CLOUD MESSAGING (PUSH saat aplikasi tertutup)
-   Aktif HANYA jika fcm-config.js diisi. Jika tidak, tetap pakai
-   notifikasi lokal.
-   ===================================================================== */
-function loadScript(src){
-  return new Promise((res, rej) => {
-    const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s);
-  });
-}
-async function initFCM(){
-  const cfg = (typeof window.FCM_CONFIG !== 'undefined') ? window.FCM_CONFIG : null;
-  if (!cfg || !cfg.apiKey) return;                 // FCM belum dikonfigurasi
-  if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
-  try {
-    await Promise.all([
-      loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js'),
-      loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js'),
-    ]);
-    firebase.initializeApp(cfg);
-    const messaging = firebase.messaging();
-
-    // Notifikasi foreground (aplikasi terbuka) -> tampilkan lokal
-    messaging.onMessage((payload) => {
-      const n = payload.notification || {};
-      if (Notification.permission === 'granted') {
-        try {
-          new Notification(n.title || '⏰ Waktu Sholat', { body: n.body || '', icon: 'icons/icon-192.png', tag: (payload.data&&payload.data.tag)||'sholat' });
-        } catch(e){ toast(n.title || 'Waktu sholat'); }
-      }
-    });
-
-    // Daftarkan token ke server
-    try {
-      const sw = await navigator.serviceWorker.register('firebase-messaging-sw.js');
-      const token = await messaging.getToken({
-        vapidKey: cfg.vapidKey,
-        serviceWorkerRegistration: sw,
-      });
-      if (token) {
-        state.__fcmToken = token;
-        await sendTokenToServer(token, cfg.serverUrl);
-        console.log('FCM token terdaftar');
-      }
-    } catch(e){ console.warn('FCM getToken gagal:', e); }
-
-    // Perbarui token saat izin/registrasi berubah
-    messaging.onTokenRefresh(async () => {
-      try {
-        const sw = await navigator.serviceWorker.ready;
-        const token = await messaging.getToken({ vapidKey: cfg.vapidKey, serviceWorkerRegistration: sw });
-        if (token) await sendTokenToServer(token, cfg.serverUrl);
-      } catch(e){}
-    });
-
-    window.__messaging = messaging;
-  } catch(e){ console.warn('FCM init gagal:', e); }
-}
-async function sendTokenToServer(token, serverUrl){
-  if (!serverUrl) return; // tanpa server, push tidak dikirim otomatis
-  try {
-    await fetch(serverUrl + '/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        token,
-        lat: state.coords ? state.coords.lat : -7.4211,
-        lng: state.coords ? state.coords.lng : 109.2343,
-        method: state.method,
-        offsets: state.offsets,
-        notifyOn: state.notifyOn,
-      }),
-    });
-  } catch(e){ console.warn('Gagal kirim token ke server:', e); }
-}
-// Panggil saat FCM aktif & data penting berubah (lokasi/metode/offset)
-function resyncPush(){
-  const cfg = (typeof window.FCM_CONFIG !== 'undefined') ? window.FCM_CONFIG : null;
-  if (!cfg || !cfg.apiKey || !cfg.serverUrl) return;
-  sendTokenToServer(state.__fcmToken || '', cfg.serverUrl);
-}
-initFCM();
-
-/* =====================================================================
-   INIT
-   ===================================================================== */
-load();
-applyTheme();
-$('notifToggle').onchange = e => { state.notifyOn = e.target.checked; save(); updateNotifStatus(); };
-updateNotifStatus();
-
-// mulai
-getJadwal();
-setInterval(() => { // ganti tanggal/hari
-  const d = todayKey();
-  if (state.todayKey && state.todayKey !== d) getJadwal();
-}, 30000);
-tick();
-setInterval(tick, 1000);
-</script>
+<!-- Kode aplikasi dipisah dari HTML agar bisa dipasang CSP ketat
+     (script-src self-only) dan mudah di-cache oleh Service Worker. -->
+<script src="app.js"></script>
 </body>
 </html>
