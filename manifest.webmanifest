@@ -1,18 +1,42 @@
 {
-  "name": "Sholat App — Jadwal & Pengingat",
+  "name": "Sholat App — Jadwal & Pengingat Sholat",
   "short_name": "Sholat",
-  "description": "Jadwal sholat realtime akurat berbasis GPS presisi tinggi dengan pengingat notifikasi.",
-  "start_url": "./index.html",
+  "id": "./",
+  "description": "Jadwal sholat realtime akurat berbasis GPS presisi tinggi dengan pengingat notifikasi, adzan tepat waktu, arah kiblat, kalender Hijriah, dan mengaji Al-Quran.",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "background_color": "#0b1020",
   "theme_color": "#0b1020",
   "lang": "id",
-  "categories": ["lifestyle", "utilities"],
+  "dir": "ltr",
+  "categories": ["lifestyle", "utilities", "education"],
+  "prefer_related_applications": false,
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Al-Quran (Mengaji)",
+      "short_name": "Al-Quran",
+      "url": "./?tab=quran",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Lailatul Qadar & Doa",
+      "short_name": "Qadar",
+      "url": "./?tab=qadar",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Multi-lokasi tersimpan",
+      "short_name": "Lokasi",
+      "url": "./?tab=lokasi",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }

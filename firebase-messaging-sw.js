@@ -1,14 +1,23 @@
 /* =====================================================================
    FCM SERVICE WORKER — menangani push notification saat aplikasi
-   sedang tertutup / berjalan di background.
+   tertutup / di background.
+
+   PENTING: berkas ini didaftarkan pada scope yang sama ('/') dengan sw.js,
+   sehingga ia MENGGANTIKAN sw.js sebagai service worker aktif. Karena itu
+   sw.js diimpor lebih dulu di sini agar kemampuan offline tetap utuh
+   (dulu tidak diimpor -> aplikasi kehilangan mode offline begitu FCM aktif).
    ===================================================================== */
+importScripts('./sw.js');
+
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 importScripts('./fcm-config.js');
 
-if (self.FCM_CONFIG && self.FCM_CONFIG.apiKey) {
+const cfg = self.FCM_CONFIG;
+
+if (cfg && cfg.apiKey) {
   try {
-    firebase.initializeApp(self.FCM_CONFIG);
+    if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(cfg);
     const messaging = firebase.messaging();
 
     messaging.onBackgroundMessage((payload) => {
@@ -16,7 +25,7 @@ if (self.FCM_CONFIG && self.FCM_CONFIG.apiKey) {
       const notif = payload.notification || {};
       const title = notif.title || data.title || '⏰ Waktu Sholat';
       const body = notif.body || data.body || 'Segera tunaikan sholat.';
-      self.registration.showNotification(title, {
+      return self.registration.showNotification(title, {
         body: body,
         icon: './icons/icon-192.png',
         badge: './icons/icon-192.png',
@@ -26,18 +35,12 @@ if (self.FCM_CONFIG && self.FCM_CONFIG.apiKey) {
         data: { url: data.url || './' },
       });
     });
-
-    self.addEventListener('notificationclick', (event) => {
-      event.notification.close();
-      const url = (event.notification.data && event.notification.data.url) || './';
-      event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-          for (const c of list) { if ('focus' in c) return c.focus(); }
-          return clients.openWindow(url);
-        })
-      );
-    });
   } catch (e) {
     console.warn('FCM init gagal:', e);
   }
+} else {
+  console.info('FCM belum dikonfigurasi (fcm-config.js) — push server tidak aktif.');
 }
+
+/* Handler notificationclick ditangani di sw.js (diimpor di atas) agar
+   klik notifikasi tetap berfungsi baik FCM aktif maupun tidak. */

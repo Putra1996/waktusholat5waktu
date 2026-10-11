@@ -1,0 +1,6 @@
+# Berkas dokumentasi & konfigurasi repo tidak perlu ikut ter-deploy
+# (menghindari dokumen internal ikut terbit ke publik).
+AUDIT.md
+README.md
+.gitignore
+.vercelignore
