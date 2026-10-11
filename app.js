@@ -1346,19 +1346,32 @@ function setupAudio(){
     audioEl.load();
   } catch (e) {}
 }
-// "Unlock" audio pada interaksi pertama: kebijakan autoplay browser
-// memblokir play() tanpa gestur pengguna, sehingga adzan bisa gagal bunyi.
-let audioPrimed = false;
+// "Unlock" audio pada interaksi pertama: kebijakan autoplay browser memblokir
+// play() tanpa gestur pengguna, sehingga adzan bisa gagal berbunyi.
+//
+// BUGFIX (audit lanjutan): proses unlock ini asinkron. Bila gestur pertama
+// justru tombol "Uji suara", pemutaran nyata sudah dimulai lebih dulu, lalu
+// callback unlock men-pause elemen yang sama -> bunyi adzan terpotong.
+// Karena itu unlock dibatalkan begitu ada pemutaran nyata (penanda `priming`),
+// dan pemutaran dilakukan dalam keadaan muted (selalu diizinkan browser).
+let priming = false;
 function primeAudio(){
-  audioPrimed = true;
   try { if (beepCtx && beepCtx.state === 'suspended') beepCtx.resume(); } catch (e) {}
+  if (priming) return;
+  priming = true;
   setupAudio();
   try {
-    audioEl.volume = 0;
-    const done = () => { try { audioEl.pause(); audioEl.currentTime = 0; } catch (e) {} audioEl.volume = clampVol(); };
+    audioEl.muted = true;
+    const finish = () => {
+      if (!priming) return;                 // sudah ada pemutaran nyata -> jangan diganggu
+      priming = false;
+      try { audioEl.pause(); audioEl.currentTime = 0; } catch (e) {}
+      audioEl.muted = false;
+      audioEl.volume = clampVol();
+    };
     const p = audioEl.play();
-    if (p && typeof p.then === 'function') p.then(done).catch(done); else done();
-  } catch (e) {}
+    if (p && typeof p.then === 'function') p.then(finish).catch(finish); else finish();
+  } catch (e) { priming = false; audioEl.muted = false; }
 }
 ['pointerdown','touchstart','keydown'].forEach(ev =>
   window.addEventListener(ev, primeAudio, { once: true, passive: true })
@@ -1367,7 +1380,9 @@ function primeAudio(){
 function clampVol(){ return Math.max(0, Math.min(1, typeof state.volume === 'number' ? state.volume : 0.8)); }
 function playReminder(){
   if (!state.soundOn) return;
+  priming = false;                 // batalkan unlock yang tertunda agar tidak memotong bunyi
   try {
+    audioEl.muted = false;
     audioEl.volume = clampVol();
     if (state.soundType === 'beep') {
       playBeep();
@@ -1399,7 +1414,7 @@ function playBeep(){
     osc.stop(beepCtx.currentTime + 0.5);
   } catch(e){}
 }
-$('testSoundBtn').onclick = () => { primeAudioOnGesture(); playReminder(); };
+$('testSoundBtn').onclick = () => { prepAudioForPlayback(); playReminder(); };
 $('soundToggle').onchange = e => { state.soundOn = e.target.checked; save(); };
 $('soundTypeSel').onchange = e => { state.soundType = e.target.value; save(); setupAudio(); };
 // AUDIT: geser slider tidak lagi menulis localStorage puluhan kali
@@ -1412,8 +1427,8 @@ $('adzanUrlInput').onchange = e => {
   if (v) toast('MP3 adzan kustom disimpan 🎵');
 };
 $('adzanAtTimeToggle').onchange = e => { state.adzanAtTime = e.target.checked; save(); };
-// Tombol "Uji suara" sudah berupa gestur pengguna: cukup siapkan sumber lalu putar.
-function primeAudioOnGesture(){ audioPrimed = true; setupAudio(); }
+// Tombol "Uji suara" sudah berupa gestur pengguna: siapkan sumber lalu putar.
+function prepAudioForPlayback(){ priming = false; audioEl.muted = false; setupAudio(); }
 
 /* =====================================================================
    ADZAN YOUTUBE (streaming, menghormati hak cipta)
