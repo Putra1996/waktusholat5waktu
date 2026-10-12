@@ -185,3 +185,16 @@ Uji regresi audio priming (kode lama GAGAL, kode baru LULUS) ...................
 - Audio adzan yang benar-benar berbunyi — butuh browser nyata (sudah ada uji regresi logika di §5).
 - `robots.txt`/SEO indexing, dan uji Lighthouse.
 - Push FCM tetap nonaktif sampai `fcm-config.js` diisi + backend `/register` tersedia.
+
+---
+
+## 10. Tindak lanjut 12 Oktober 2026 — dokumen ini masuk ke `main`
+
+| Langkah | Hasil |
+| --- | --- |
+| Commit dokumen (bagian 1b di atas) | dipindahkan ke branch sesi baru `arena/543d37c1-waktusholat5waktu`, PR #3 dibuka → **di-merge** (`main` = **`e5fd1f4`**) |
+| **GitHub Pages** — `putra1996.github.io/waktusholat5waktu` | workflow *pages build and deployment* **sukses** untuk `e5fd1f4` (15:52–15:53 UTC); berkas `DEPLOY-AUDIT.md` di sana sudah memuat bagian 1b ✔ |
+| **Vercel** — `waktusholat5waktu.vercel.app` | **tidak ada deployment baru** yang dibuat untuk commit ini; record terakhir tetap `b30e6f4` (11 Okt 11:30 UTC). Produksi masih menyajikan `DEPLOY-AUDIT.md` versi sebelum 1b |
+| Dampak ke pengguna | **tidak ada**: PR #3 hanya menyentuh berkas dokumentasi. Kode aplikasi di produksi tetap versi hasil audit (`sw.js` v14, `app.js` tersedia, CSP/HSTS terpasang, KEMENAG di baris pertama) |
+
+> Jadi bila Vercel tidak membangun ulang: buka proyek di dashboard Vercel → **Deployments → Redeploy** (atau periksa **Settings → Git** bila deployment otomatis berhenti berjalan). Aplikasi di produksi tetap sehat tanpa langkah ini.
