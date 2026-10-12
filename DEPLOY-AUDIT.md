@@ -13,12 +13,38 @@ Artinya "bug" yang Anda lihat di situs live berasal dari kode lama, bukan dari p
 
 ---
 
+## 1b. ✅ Status akhir — SUDAH DIPERBAIKI & TERVERIFIKASI
+
+Tindakan: **PR #1 di-merge ke `main`** (`b30e6f4`, 11:30 UTC) → Vercel membangun ulang otomatis → **build baru live pukul 11:33:40 UTC**.
+
+Bukti verifikasi langsung dari server produksi (11:33–11:34 UTC):
+
+| Pemeriksaan | Sebelum | Sesudah (live) |
+| --- | --- | --- |
+| `GET /app.js` | 404 | **200** — berisi `esc()`, `safeUrl()`, `fetchJSON()`, `METHODS` resmi ✔ |
+| `GET /sw.js` | `sholat-app-v13` (cache-first) | **`sholat-app-v14`** (network-first navigasi, handler notifikasi, precache `app.js`) ✔ |
+| Dropdown metode | label lama (Khyber, IAIN, Turki/Diyanet …) | **KEMENAG di baris pertama**, 21 metode resmi ✔ |
+| Baris "Adzan tepat waktu" | tidak ada | **ada** ✔ |
+| Baris "Mazhab Ashar" | tidak ada | **ada** ✔ |
+| Skip-link "Lewati ke jadwal sholat" | tidak ada | **ada** ✔ |
+| Peringatan zona waktu | tidak ada | **aktif** (`⚠️ zona Asia/Jakarta (+11 jam dari jam perangkat)` pada renderer UTC−4) ✔ |
+| `Content-Security-Policy` | tidak ada | **terpasang** (script-src 'self' + gstatic, frame-src YouTube, dst.) ✔ |
+| `Strict-Transport-Security` | tidak ada | `max-age=63072000; includeSubDomains; preload` ✔ |
+| `X-Content-Type-Options` / `X-Frame-Options` / `Referrer-Policy` / `Permissions-Policy` | tidak ada | **semuanya terpasang** ✔ |
+| `Cache-Control` untuk `/` | — | `public, max-age=0, must-revalidate` ✔ |
+| `Cache-Control` + `Service-Worker-Allowed` untuk `/sw.js` | — | `no-cache, no-store, must-revalidate` + `Service-Worker-Allowed: /` ✔ |
+| `Cache-Control` untuk `/icons/icon-192.png` | — | `public, max-age=604800, stale-while-revalidate=86400` ✔ |
+
+> Header diperiksa lewat layanan pembaca header pihak ketiga karena sandbox ini tidak diizinkan menghubungi `vercel.app` secara langsung (`curl` diblokir oleh allowlist jaringan).
+
+---
+
 ## 2. Bukti (semuanya dari server live)
 
 | Bukti | Hasil di server live | Yang seharusnya bila kode audit ter-deploy |
 | --- | --- | --- |
 | `GET /app.js` | **404 NOT_FOUND** (`iad1::s5lrd-…`) | 200, ±72 KB berkas JS |
-| `GET /vercel.json` | **404 NOT_FOUND** | 200 (berkas konfigurasi ada di repo) |
+| `GET /vercel.json` | 404 | 404 juga — **bukan indikator**: Vercel tidak menyajikan `vercel.json` sebagai berkas publik, ia dipakai sebagai konfigurasi build |
 | `GET /sw.js` | `const CACHE = 'sholat-app-**v13**'` + strategi *cache-first* | `v14` + *network-first* untuk navigasi |
 | `GET /manifest.webmanifest` | nama lama, `start_url: "./index.html"`, tanpa `id`/`shortcuts` | `start_url: "./"`, ada `id` + 3 shortcuts |
 | Dropdown "Metode Perhitungan" di halaman | **Khyber (Shia), Universitas Islamabad, IAIN (Indonesia), Umm Al-Qura, Dewan Fatwa Mesir, Mufti Qatar, Gulf (Dubai), Singapura / MUIS, Umm al-Qura (Gap), Turki / Diyanet, Teheran, Jafari / Iran, Kuzestan, Singapura / MSG, KEMENAG** | 21 metode resmi Aladhan, KEMENAG di urutan pertama |
@@ -145,8 +171,17 @@ Uji regresi audio priming (kode lama GAGAL, kode baru LULUS) ...................
 
 ---
 
-## 9. Langkah perbaikan yang diambil
+## 9. Langkah perbaikan yang diambil (selesai)
 
-1. PR #1 di-merge ke `main` agar Vercel membangun ulang dari kode hasil audit.
-2. Tunggu deploy selesai (±1 menit), lalu verifikasi ulang aset live (bagian 7) dari sisi sandbox ini.
-3. Bila ingin alur berbeda di masa depan: ubah **Production Branch** proyek Vercel, atau aktifkan *Deploy Hooks*, agar rilis tidak bergantung pada `main`.
+1. ✅ **PR #1 di-merge ke `main`** (`b30e6f4`) → Vercel membangun ulang dari kode hasil audit.
+2. ✅ Deploy baru live ±3 menit setelah merge; seluruh aset & header produksi diverifikasi ulang (bagian 1b).
+3. ▶️ **Tindakan Anda selanjutnya:** buka <https://waktusholat5waktu.vercel.app> dan **muat ulang 1–2 kali** (atau hapus data situs) karena Service Worker v13 yang lama masih menyajikan halaman dari cache pada muat pertama — lihat bagian 6. Setelah itu barulah terasa perbaikan notifikasi Android, label metode, kompas, dan kartu "Berikutnya".
+4. 💡 Untuk rilis berikutnya: setiap perubahan baru akan saya buat sebagai PR baru dari branch `arena/c386c1c9-waktusholat5waktu`; merge ke `main` = otomatis deploy. Bila ingin alur berbeda, ubah **Settings → Git → Production Branch** di proyek Vercel.
+5. 🔎 Bila masih ada bug spesifik yang Anda lihat, sebutkan gejalanya (halaman mana, di perangkat apa) agar saya bisa reproduksi dan tambahkan uji regresinya.
+
+### Sisa keterbatasan yang belum bisa diverifikasi dari sini
+
+- Uji langsung di Android (notifikasi sungguhan, sensor kompas, GPS) — butuh perangkat nyata.
+- Audio adzan yang benar-benar berbunyi — butuh browser nyata (sudah ada uji regresi logika di §5).
+- `robots.txt`/SEO indexing, dan uji Lighthouse.
+- Push FCM tetap nonaktif sampai `fcm-config.js` diisi + backend `/register` tersedia.
