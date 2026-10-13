@@ -198,3 +198,28 @@ Uji regresi audio priming (kode lama GAGAL, kode baru LULUS) ...................
 | Dampak ke pengguna | **tidak ada**: PR #3 hanya menyentuh berkas dokumentasi. Kode aplikasi di produksi tetap versi hasil audit (`sw.js` v14, `app.js` tersedia, CSP/HSTS terpasang, KEMENAG di baris pertama) |
 
 > Jadi bila Vercel tidak membangun ulang: buka proyek di dashboard Vercel → **Deployments → Redeploy** (atau periksa **Settings → Git** bila deployment otomatis berhenti berjalan). Aplikasi di produksi tetap sehat tanpa langkah ini.
+
+---
+
+## 11. Tindak lanjut 13 Oktober 2026 — verifikasi ulang & koreksi catatan §10
+
+Catatan §10 di atas **sudah tidak akurat**: Vercel **memang** membangun ulang setelah PR #3/#4 masuk. Berikut hasil pemeriksaan ulang dari log deployment GitHub (API `deployments` / `pages/builds`), bukan dari tampilan dashboard.
+
+| Pemeriksaan | Hasil terverifikasi |
+| --- | --- |
+| `main` saat ini | **`30a9990`** = merge PR #4 (berisi seluruh kode hasil audit + dokumen) |
+| Deployment **Vercel Production** untuk `30a9990` | **ada & `success`** — id `7018960737`, dibuat 12 Okt 16:52:09 UTC, status sukses 17:49:19 UTC |
+| Deployment Vercel Production untuk `e5fd1f4` | `success` (id `7018775950`, 16:40 UTC) |
+| Deployment Vercel **Preview** untuk `71df9ad` | ada (id `7018892273`) — artinya integrasi Git Vercel **aktif**, bukan berhenti |
+| Build **GitHub Pages** untuk `30a9990` | `status: built`, dibuat 12 Okt 16:01:56 UTC (±75 detik) |
+| Halaman live `waktusholat5waktu.vercel.app` | render lengkap; skip-link ada, baris **“Adzan tepat waktu”** ada, **“Mazhab Ashar”** ada, **KEMENAG** di baris pertama dari 21 metode, peringatan zona waktu aktif |
+| `sw.js` live (Vercel) | `const CACHE = 'sholat-app-v14'` — versi hasil audit, bukan `v13` |
+| Halaman live `putra1996.github.io/waktusholat5waktu` | **identik** dengan produksi Vercel (cermin Pages sudah sinkron) |
+
+### Kesimpulan
+
+- **Tidak ada lagi pekerjaan deploy yang tertunda.** Produksi Vercel dan cermin GitHub Pages sudah menyajikan kode hasil audit; satu-satunya perubahan setelah merge kode adalah berkas dokumentasi.
+- Penyebab tampilan “belum berubah” di perangkat Anda adalah **Service Worker lama (`v13`)**, bukan deployment yang gagal — lihat §6: muat ulang 1–2 kali / hapus data situs agar `v14` menggantikan cache lama.
+- Alur rilis tetap: commit di branch sesi → PR → **merge ke `main`** → Vercel & Pages membangun ulang otomatis (terbukti pada `30a9990`).
+
+> Pembatasan lingkungan: `curl` dari sandbox masih diblokir allowlist jaringan untuk domain `vercel.app`/`github.io`, sehingga pembuktian isi halaman live dilakukan lewat pembaca halaman platform (bukan curl) dan status deploy lewat API GitHub. Rincian id deployment di atas dapat diverifikasi ulang dengan `gh api repos/Putra1996/waktusholat5waktu/deployments`.
